@@ -1,5 +1,4 @@
-"""Shared eval-tier fixtures and helpers (stage 7; extended stage 9a,
-`docs/specs/stage-9a.md`).
+"""Shared eval-tier fixtures and helpers.
 
 `live_settings` is session-scoped on purpose: `observability.configure_observability`
 raises `RuntimeError` on a second call in one process
@@ -8,11 +7,10 @@ in `deepeval test run tests/` shares one process. One provider, one
 tmp-directory span dump root, reused by every live case in the session.
 
 `eval_run_id`/`e2e_judge_model`/`fixture_base_url`/`record_case_cost` are
-stage 9a's own additions, session-scoped for the same reason: one
-`OpenRouterModel` instance shared across all 15 golden-dataset cases' 3
-metrics is what lets its `usage_log` accumulate a real, measurable judge-cost
-total (D9a.7), and one fixture HTTP server (D9a.1) is enough for the one
-case that needs it.
+session-scoped for the same reason: one `OpenRouterModel` instance shared
+across all 15 golden-dataset cases' 3 metrics is what lets its `usage_log`
+accumulate a real, measurable judge-cost total, and one fixture HTTP server
+is enough for the one case that needs it.
 """
 
 from __future__ import annotations
@@ -43,14 +41,14 @@ _FIXTURES_DIR = PROJECT_ROOT / "evals" / "fixtures"
 @pytest.fixture(scope="session")
 def live_settings(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Settings]:
     """One real `Settings`, span dump redirected off the project's real
-    `runs/` (`insights.md`'s stage-5 pollution mistake, avoided here the
-    same way), with observability configured exactly once for the session.
+    run-dump directory to avoid polluting it, with observability configured
+    exactly once for the session.
     """
     settings = eval_settings(
         runs_dir=str(tmp_path_factory.mktemp("eval-runs")),
         settings=load_settings(),
     )
-    # D9e.1: the binding knob for a judge-metric timeout is DeepEval's own
+    # The binding knob for a judge-metric timeout is DeepEval's own
     # per-task budget, not the httpx read timeout `OpenRouterModel` already
     # carries. Exported once per session, after `load_settings()` has
     # already succeeded (this field has no code default that would let it
@@ -74,15 +72,15 @@ def golden_input(case_id: str) -> str:
 
 def all_case_ids() -> list[str]:
     """Every case id in `tests/golden_dataset.json`, in file order -- the
-    parametrize source for `tests/test_e2e.py::test_golden_dataset` (stage
-    9a, R4b's "усі 15")."""
+    parametrize source for `tests/test_e2e.py::test_golden_dataset`, which
+    runs all 15 cases."""
     return list(_golden_cases_by_id().keys())
 
 
 def golden_case(case_id: str) -> dict[str, Any]:
-    """The full row of one `tests/golden_dataset.json` case, by id (stage
-    9a) -- `golden_input` only ever needed `input`; `resolve_case_input`
-    (below) and stage 9a's own `check_expects`/`skip_if_poisoned_chunk_absent`
+    """The full row of one `tests/golden_dataset.json` case, by id --
+    `golden_input` only ever needed `input`; `resolve_case_input`
+    (below) and `check_expects`/`skip_if_poisoned_chunk_absent`
     (`tests/test_e2e.py`) need `category`, `expected_output`, `fixture`,
     `needs_poisoned_index` and `expects` too.
 
@@ -96,7 +94,7 @@ def golden_case(case_id: str) -> dict[str, Any]:
 
 def resolve_case_input(case: dict[str, Any], fixture_base_url: str) -> str:
     """`case["input"]`, with `{fixture_url}` substituted for the one case
-    that carries an HTTP-fetchable `fixture` (stage 9a, D9a.3).
+    that carries an HTTP-fetchable `fixture`.
 
     `needs_poisoned_index` is excluded even though that case also carries a
     `fixture` key: its fixture is for the knowledge index, never fetched
@@ -113,9 +111,8 @@ def resolve_case_input(case: dict[str, Any], fixture_base_url: str) -> str:
 
 def skip_without_index() -> None:
     """Skip an eval-tier test that needs a live index this CI job never
-    builds (`index/` is gitignored, the `evals` job runs no `ingest.py`
-    step -- the same defect stage 6 found for its own freshness test,
-    `docs/specs/stage-7.md` D7.9)."""
+    builds -- the local vector index directory is not checked into the
+    repository, and the `evals` job runs no `ingest.py` step."""
     if not _INDEX_MANIFEST_PATH.is_file():
         pytest.skip(
             f"{_INDEX_MANIFEST_PATH} does not exist -- run `python ingest.py` "
@@ -131,20 +128,20 @@ def fixture_text(name: str) -> str:
 
 @pytest.fixture(scope="session")
 def fixture_base_url() -> Iterator[str]:
-    """One local HTTP server over `evals/fixtures/`, for the whole session
-    (stage 9a, D9a.1). Only `adversarial-indirect-injection` uses it
-    (`resolve_case_input`), but it is session-scoped rather than
-    function-scoped for the same reason `live_settings` is: cheap to start
-    once, and nothing about it is per-case state."""
+    """One local HTTP server over `evals/fixtures/`, for the whole session.
+    Only `adversarial-indirect-injection` uses it (`resolve_case_input`),
+    but it is session-scoped rather than function-scoped for the same
+    reason `live_settings` is: cheap to start once, and nothing about it is
+    per-case state."""
     with run_fixture_server(_FIXTURES_DIR) as url:
         yield url
 
 
 @pytest.fixture(scope="session")
 def eval_run_id() -> str:
-    """One id for this whole e2e evaluation session (stage 9a, D9a.8) --
-    a different namespace from each case's own Supervisor `run_id` (D8.9).
-    Groups this stage's own artefacts under `runs/<eval_run_id>/`."""
+    """One id for this whole e2e evaluation session -- a different
+    namespace from each case's own Supervisor `run_id`. Groups this
+    session's own artefacts under one shared run-dump subdirectory."""
     return str(uuid4())
 
 
@@ -160,8 +157,8 @@ def _shared_judge_model(live_settings: Settings) -> OpenRouterModel:
 @pytest.fixture(scope="session")
 def e2e_judge_model(live_settings: Settings) -> OpenRouterModel:
     """One judge model instance, shared across all 15 golden-dataset cases'
-    3 metrics, with a real `usage_log` (stage 9a, D9a.7) -- sharing one
-    instance is what lets the log accumulate a real total; a fresh instance
+    3 metrics, with a real `usage_log` -- sharing one instance is what lets
+    the log accumulate a real total; a fresh instance
     per call would reset nothing on `usage_log` itself, but `test_e2e.py`
     needs the *same* list back after 45 measurements, not 45 separate ones.
     """
@@ -171,17 +168,15 @@ def e2e_judge_model(live_settings: Settings) -> OpenRouterModel:
 @pytest.fixture(scope="session")
 def component_judge_model(live_settings: Settings) -> OpenRouterModel:
     """One judge model instance shared across the four component test
-    files' own live cases (stage 9e -- the "shared judge instance" phase-1
-    deliverable, extended past `test_e2e.py`'s own D9a.7 fixture).
+    files' own live cases, the same sharing pattern `e2e_judge_model` uses
+    for the end-to-end cases.
 
-    Component-file judge cost had never been measured before this stage
-    (`insights.md`, stage 9e planning: "the component cases' judge cost has
-    never been measured") -- each test body built a fresh, unlogged judge
-    model instead. Separate from `e2e_judge_model` because the two never
-    run in the same process (D9e.12's two-invocation configuration keeps
-    `tests/test_e2e.py` and the four component files in separate `deepeval
-    test run` invocations), not because sharing one instance across both
-    would be wrong.
+    Component-file judge cost was not measured before this fixture existed
+    -- each test body built a fresh, unlogged judge model instead. Separate
+    from `e2e_judge_model` because the two never run in the same process:
+    `tests/test_e2e.py` and the four component files run as separate
+    `deepeval test run` invocations, not because sharing one instance
+    across both would be wrong.
     """
     return _shared_judge_model(live_settings)
 
@@ -196,12 +191,12 @@ def run_judged_case(
     spans: RunSpans,
 ) -> None:
     """Run `assert_test`, then persist this case's span dump and its
-    measured agent/judge cost, whatever `assert_test` did (stage 9e).
+    measured agent/judge cost, whatever `assert_test` did.
 
     Shared by the four component test files. `tests/test_e2e.py` keeps its
     own richer version -- it also combines a deterministic pre-check's
-    failure into the raised error (D9e.3), which no component-file case
-    has an equivalent of.
+    failure into the raised error, which no component-file case has an
+    equivalent of.
 
     Raises
     ------
@@ -209,8 +204,8 @@ def run_judged_case(
         Whatever `assert_test` itself raised, re-raised after the `finally`
         block below has already run -- cost and span persistence must not
         depend on the case having passed, and must survive a DeepEval-internal
-        crash as well as an ordinary metric failure (stage 9e phase 1b: a
-        missing pywin32 made every case die on `AttributeError` from
+        crash as well as an ordinary metric failure (a missing pywin32 was
+        once seen to make every case die on `AttributeError` from
         DeepEval's own result cache).
     """
     judge_calls_before = len(judge.usage_log or [])
@@ -243,14 +238,13 @@ def record_case_cost(
     agent_cost_usd: float,
     judge_cost_usd: float,
 ) -> None:
-    """Append one case's measured cost to `runs/<eval_run_id>/case-costs.jsonl`
-    (stage 9a, D9a.8).
+    """Append one case's measured cost to this eval run's own
+    `case-costs.jsonl` file, under its run-dump subdirectory.
 
     Written incrementally, one line per case, while the data is still in
     memory in the process that produced it -- `evals/summarize_e2e.py` runs
     later, in a separate process, and reads this file rather than trying to
-    reconstruct cost from state that will not have survived (the mistake
-    this stage's own adversarial review caught in an earlier draft).
+    reconstruct cost from state that will not have survived.
     """
     run_dir = paths.run_dir(eval_run_id)
     record = {
@@ -264,16 +258,15 @@ def record_case_cost(
 
 
 def persist_case_spans(eval_run_id: str, *, case_id: str, spans: RunSpans) -> None:
-    """Write one case's own span dump to
-    `runs/<eval_run_id>/spans/<case_id>.json` (stage 9e, D9e.2), before the
+    """Write one case's own span dump to this eval run's own `spans/`
+    subdirectory, under its run-dump directory, before the
     `tmp_path_factory` root that produced it is cleaned up.
 
-    Three stages in a row lost a diagnosis to exactly that cleanup (stage
-    9b, 9d, and this stage's own planning session, `insights.md`): the
-    `tmp_path_factory`-rooted span dump `live_settings` redirects to does
-    not survive past the pytest process. Written directly from the
-    already-loaded `RunSpans` rather than re-reading the temp file, since
-    the caller has it in memory anyway.
+    A diagnosis was lost to exactly that cleanup more than once before this
+    function existed: the `tmp_path_factory`-rooted span dump
+    `live_settings` redirects to does not survive past the pytest process.
+    Written directly from the already-loaded `RunSpans` rather than
+    re-reading the temp file, since the caller has it in memory anyway.
     """
     spans_dir = paths.run_dir(eval_run_id) / "spans"
     spans_dir.mkdir(parents=True, exist_ok=True)
@@ -285,7 +278,7 @@ def persist_case_spans(eval_run_id: str, *, case_id: str, spans: RunSpans) -> No
 def load_case_costs(eval_run_id: str) -> list[dict[str, Any]]:
     """Read back every record `record_case_cost` wrote for one eval run.
 
-    Does not create `runs/<eval_run_id>/` as a side effect (unlike
+    Does not create the run's own directory as a side effect (unlike
     `paths.run_dir`) -- a loader for a run that never wrote anything must
     not leave an empty directory behind.
     """

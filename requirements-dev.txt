@@ -1,5 +1,6 @@
 # Development gate and evaluation tooling. Installed into .venv before the
-# first gate run; the application requirements only matter from stage 2 on.
+# first gate run; the application requirements only matter once the
+# application itself exists.
 #
 # deepeval lives here rather than in requirements.txt because it is a test
 # tool, not a runtime dependency of the system. That has a consequence worth
@@ -20,9 +21,9 @@ pytest-timeout>=2.3
 # graph for a plugin that is invisible in requirements-dev.txt otherwise.
 pytest-asyncio==1.4.0
 
-# The evaluation framework the assignment mandates. Pinned exactly: the
-# stage-1 SDK reconnaissance measures this specific version's API surface,
-# and a floor would let a later resolve move underneath those findings.
+# The evaluation framework the assignment mandates. Pinned exactly: SDK
+# reconnaissance measured this specific version's API surface, and a floor
+# would let a later resolve move underneath those findings.
 deepeval==4.1.10
 
 # DeepEval's own result cache takes a shared file lock, and on Windows
@@ -31,7 +32,7 @@ deepeval==4.1.10
 # `get_cached_test_run` returns None and deepeval's own
 # `cache.py:cache_test_case` raises `AttributeError: 'NoneType' object has
 # no attribute 'test_cases_lookup_map'` on EVERY test case, whatever its
-# metrics scored. Measured at stage 9e phase 1b: all 14 e2e cases failed
+# metrics scored. Measured directly: all 14 e2e cases failed
 # that way while DeepEval's own persisted run file recorded 7 of them as
 # passing. Worse than cosmetic -- an `AttributeError` is not an
 # `AssertionError`, so it escapes `tests/test_e2e.py`'s own combined-error

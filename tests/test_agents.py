@@ -1,12 +1,12 @@
-"""The three sub-agent factories, under D3.2's dependency-inversion design.
+"""The three sub-agent factories, under a dependency-inversion design.
 
-`docs/specs/stage-3.md`: `create_planner_agent`/`create_research_agent`/
+`create_planner_agent`/`create_research_agent`/
 `create_critic_agent` take `model`, `tools` and `middleware` as parameters
 and import nothing from `tools.py`/`models.py`/`middleware.py` themselves --
 `tests/test_layering.py::test_module_imports_respect_its_layer` is the
 standing guard for that; this file covers what it cannot: that the factory
-actually *validates* what it is handed (D3.5) and never wires in a
-checkpointer (D3.6).
+actually *validates* what it is handed and never wires in a
+checkpointer.
 """
 
 from __future__ import annotations
@@ -103,7 +103,7 @@ def test_critic_builds_and_returns_a_structured_critique() -> None:
     assert structured.verdict == "APPROVE"
 
 
-# -- Test 1: allowlist refusal at the factory level (D3.5) --
+# -- Test 1: allowlist refusal at the factory level --
 
 
 def test_planner_factory_refuses_a_tool_outside_its_allowlist() -> None:
@@ -167,15 +167,16 @@ def test_planner_graph_has_no_read_url() -> None:
     assert set(tools_node.tools_by_name.keys()) == {"web_search", "knowledge_search"}
 
 
-# -- Test 13: no sub-agent carries a checkpointer (D3.6) --
+# -- Test 13: no sub-agent carries a checkpointer --
 
 
 @pytest.mark.parametrize(
     "path", ["agents/planner.py", "agents/research.py", "agents/critic.py"]
 )
 def test_agent_source_never_passes_a_checkpointer(path: str) -> None:
-    """The word `checkpointer` may appear in a docstring explaining D3.6;
-    it must never appear as a keyword argument to `create_agent`."""
+    """The word `checkpointer` may appear in a docstring explaining why
+    sub-agents carry none; it must never appear as a keyword argument to
+    `create_agent`."""
     source = (PROJECT_ROOT / path).read_text(encoding="utf-8")
     assert "checkpointer=" not in source
 

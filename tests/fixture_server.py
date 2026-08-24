@@ -1,13 +1,9 @@
-"""A minimal local HTTP server exposing `evals/fixtures/` (stage 9a,
-`docs/specs/stage-9a.md` D9a.1).
+"""A minimal local HTTP server exposing `evals/fixtures/`.
 
 Not a test module (no `test_*` name, so pytest never collects it) -- the
 one golden-dataset case that needs a real, fetchable URL for `read_url`
 (`adversarial-indirect-injection`) cannot be satisfied by a fixture file
-alone; `read_url` fetches over HTTP(S), never from disk. No prior stage
-needed a live HTTP endpoint under this project's own control, because
-stages 7-8 only ever exercised a subset of the 15 golden-dataset cases that
-happened to exclude every fixture-carrying one.
+alone; `read_url` fetches over HTTP(S), never from disk.
 
 Bound to `127.0.0.1` on an OS-assigned free port and started on a daemon
 thread, so it never survives past the pytest process and never listens on

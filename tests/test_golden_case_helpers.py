@@ -1,5 +1,4 @@
-"""`golden_case`/`resolve_case_input` (stage 9a, `docs/specs/stage-9a.md`
-D9a.2/D9a.3).
+"""`golden_case`/`resolve_case_input`.
 
 Offline against the real `tests/golden_dataset.json` -- these are plain
 functions over a tracked, reviewed file, not a hand-built fixture, matching

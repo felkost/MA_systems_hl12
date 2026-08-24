@@ -4,11 +4,11 @@ knowledge-base tools.
 Bound to `web_search`, `read_url` and `knowledge_search`. Returns free-text
 findings as structured Markdown with inline citations -- it does not save
 anything; only the Supervisor's `save_report` tool, gated by human approval,
-writes to disk. Stateless per invocation: no checkpointer (D3.6), one human
+writes to disk. Stateless per invocation: no checkpointer, one human
 message in, one findings message out.
 
-Ported from `MA_systems_hl10`; see `agents/planner.py` for the shared D3.2
-dependency-inversion rationale, including `system_prompt`'s stage-1 addition.
+See `agents/planner.py` for the shared dependency-inversion rationale that
+also governs `system_prompt` here.
 """
 
 from __future__ import annotations
@@ -49,7 +49,7 @@ def create_research_agent(
     ----------
     settings : Settings
     tools : Sequence of BaseTool
-        Must name exactly `RESEARCHER_ALLOWLIST` (D3.5).
+        Must name exactly `RESEARCHER_ALLOWLIST`.
     model : BaseChatModel
         Built by the caller. Tests inject a scripted fake instead.
     middleware : Sequence of AgentMiddleware
@@ -57,14 +57,14 @@ def create_research_agent(
         `ReadUrlCapMiddleware` appended by the caller.
     system_prompt : str
         Resolved by the caller via `prompt_store.PromptStore.get(
-        prompts.PROMPT_NAMES["researcher"], label=...)` (stage 1).
+        prompts.PROMPT_NAMES["researcher"], label=...)`.
 
     Returns
     -------
     CompiledStateGraph
         A graph whose `invoke` result carries the findings as free-text
         Markdown in the last message -- there is no `response_format`.
-        Never constructed with a checkpointer (D3.6).
+        Never constructed with a checkpointer.
     """
     assert_allowlist(tools, RESEARCHER_ALLOWLIST, "researcher")
 

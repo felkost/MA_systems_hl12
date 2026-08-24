@@ -1,6 +1,6 @@
-"""Structural guard for D3.5: a factory's own tools must match its allowlist.
+"""Structural guard: a factory's own tools must match its allowlist.
 
-Under D3.2, agent factories receive `tools` from their caller instead of
+Agent factories receive `tools` from their caller instead of
 importing `tools.py` -- which means a caller's mistake is the only thing
 standing between an agent and a capability its architecture row denies it.
 This check fails at construction, before any model call, so a wrong tool

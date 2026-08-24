@@ -1,7 +1,6 @@
-"""Idempotently uploads `tests/golden_dataset.json` into Langfuse Datasets
-(stage 3, `docs/specs/stage-3.md`) -- infrastructure for stage 4's
-LLM-as-a-Judge evaluators to be validated against known cases, ahead of
-scoring live traffic.
+"""Idempotently uploads `tests/golden_dataset.json` into Langfuse Datasets --
+infrastructure for the LLM-as-a-Judge evaluators to be validated against
+known cases, ahead of scoring live traffic.
 
 **Idempotency rides `create_dataset_item`'s own upsert-by-id contract**
 (measured on the installed `langfuse==4.14.4`: `Langfuse.create_dataset_item`
@@ -142,8 +141,8 @@ def main() -> list[str]:
         host=settings.langfuse_base_url,
         # Fixed false, not settings.tracing_enabled: this script only calls
         # the Datasets REST endpoints and never opens a span, so nothing
-        # should ever be exported through it regardless of what a .env on
-        # the machine running it says about tracing.
+        # should ever be exported through it regardless of the local
+        # tracing configuration.
         tracing_enabled=False,
     )
     cases = json.loads(

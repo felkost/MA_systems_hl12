@@ -6,14 +6,14 @@ tools as the Researcher, so the Critic checks facts through the same
 sources rather than only reading the Researcher's own text. Response format
 is `CritiqueResult`; the caller's `CriticVerificationMiddleware` forces at
 least one verification call before a verdict is accepted. Stateless per
-invocation: no checkpointer (D3.6), one human message in, one
+invocation: no checkpointer, one human message in, one
 `CritiqueResult` out.
 
-Ported from `MA_systems_hl10`; see `agents/planner.py` for the shared D3.2
-dependency-inversion rationale, including `system_prompt`'s stage-1 addition.
+See `agents/planner.py` for the shared dependency-inversion rationale that
+also governs `system_prompt` here.
 
 `system_prompt` arrives here already compiled with `today` -- this factory
-no longer calls `date.today()` itself (hl12 stage 1): the caller resolves
+never calls `date.today()` itself: the caller resolves
 `prompts.PROMPT_NAMES["critic"]` through `prompt_store.PromptStore.get(...,
 variables={"today": ...})`, so the date the Critic sees is a value the
 caller supplies, not the system clock read a second time inside a factory
@@ -66,7 +66,7 @@ def create_critic_agent(
     ----------
     settings : Settings
     tools : Sequence of BaseTool
-        Must name exactly `CRITIC_ALLOWLIST` (D3.5).
+        Must name exactly `CRITIC_ALLOWLIST`.
     model : BaseChatModel
         Built by the caller. Tests inject a scripted fake instead.
     middleware : Sequence of AgentMiddleware
@@ -76,14 +76,14 @@ def create_critic_agent(
         Resolved by the caller via `prompt_store.PromptStore.get(
         prompts.PROMPT_NAMES["critic"], label=..., variables={"today":
         date.today().isoformat()})` -- already compiled, `{{today}}` and
-        all (stage 1).
+        all.
 
     Returns
     -------
     CompiledStateGraph
         A graph whose `invoke` result carries the parsed `CritiqueResult` in
         `result["structured_response"]`. Never constructed with a
-        checkpointer (D3.6).
+        checkpointer.
     """
     assert_allowlist(tools, CRITIC_ALLOWLIST, "critic")
 

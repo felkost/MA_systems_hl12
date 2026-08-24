@@ -1,9 +1,8 @@
 """Middleware for the three sub-agents and the Supervisor.
 
-Ported from `MA_systems_hl10`, with two corrections
-(`docs/specs/stage-3.md`):
+Ported from `MA_systems_hl10`, with two corrections:
 
-**D3.1b -- the hook contract, stated precisely.** `wrap_model_call`/
+**The hook contract, stated precisely.** `wrap_model_call`/
 `wrap_tool_call` raise `NotImplementedError` from their default counterpart
 when only one side is overridden -- measured against the installed
 langchain 1.3.16: the base class's own `awrap_tool_call` is itself an
@@ -21,22 +20,22 @@ raises `ValueError` without one. A middleware missing one before/after-hook
 variant just never runs on that path. Both are bugs; only the first
 announces itself.
 
-**D3.7 -- the two Supervisor-only classes are rebound to this project's own
+**The two Supervisor-only classes are rebound to this project's own
 tool names.** hl10 keys `RoundStabilityMiddleware`/`SaveReportGuardMiddleware`
 on its A2A delegation tools (`delegate_to_researcher`, `delegate_to_critic`).
 This project's Supervisor exposes `plan`/`research`/`critique`/`save_report`
-(CLAUDE.md's `supervisor.py` row; hl8's `_S1`). Ported unchanged, both
+(hl8's `_S1`). Ported unchanged, both
 middlewares would watch for tool calls that never happen and silently never
 fire -- present, green, and inert. `SUPERVISOR_DELEGATION_TOOLS` carries the
-renamed set as a single constant so stage 4's `supervisor.py` binds its
+renamed set as a single constant so `supervisor.py` binds its
 wrappers against it rather than a second copy of the strings.
 
 Both Supervisor-only classes read state keys (`critic_gaps`, `verdict`) that
-do not exist until stage 4's `supervisor.py`. They ship this stage anyway --
-splitting one module across two stages costs more than it saves, the same
-call hl10 made landing `CritiqueResult` a stage before its Critic. Stage 3
-tests them as isolated units against hand-built state; stage 4 proves them
-wired.
+do not exist until `supervisor.py` wires them. They ship here anyway --
+splitting one module across two files costs more than it saves, the same
+call hl10 made landing `CritiqueResult` before its Critic. This module
+tests them as isolated units against hand-built state; `supervisor.py`
+proves them wired.
 """
 
 from __future__ import annotations
@@ -71,8 +70,8 @@ from models import compute_cost
 
 _VERIFICATION_TOOLS = frozenset({"web_search", "read_url", "knowledge_search"})
 
-# D3.7's rename of hl10's `_STABILITY_TOOLS`. This project's Supervisor
-# delegates via `research`/`critique` (CLAUDE.md's `supervisor.py` row);
+# Renamed from hl10's `_STABILITY_TOOLS`. This project's Supervisor
+# delegates via `research`/`critique`;
 # `plan` and `save_report` are not stability-checked -- a repeated plan or
 # save is not the failure shape this guard exists to catch.
 SUPERVISOR_DELEGATION_TOOLS = frozenset({"research", "critique"})
@@ -139,7 +138,7 @@ class ReadUrlCapMiddleware(AgentMiddleware[AgentState[ResponseT], ContextT, Resp
     pages a search already found, instead of running the fresh searches the
     plan actually asks for. `max_calls=None` removes the cap.
 
-    Defines **both** `wrap_tool_call` and `awrap_tool_call` (D3.1b).
+    Defines **both** `wrap_tool_call` and `awrap_tool_call`.
     """
 
     def __init__(self, max_calls: int | None) -> None:
@@ -202,23 +201,23 @@ class CriticVerificationMiddleware(
     response is returned as-is, whatever it contains -- one-shot, so a model
     that skips verification twice in a row cannot make this middleware loop.
 
-    Defines **both** `wrap_model_call` and `awrap_model_call` (D3.1b).
+    Defines **both** `wrap_model_call` and `awrap_model_call`.
 
     `role`, default `"critic"` -- the only role this middleware is ever
     attached to (`orchestrator.py`/`supervisor.py`'s `critic_graph`), passed
     to `record_superseded_model_call` so a verification retry's discarded
-    first call still gets its own `model.<role>` span (stage 9e, phase 3
-    R.2 finding: `TracingMiddleware`'s own span otherwise sees only the
+    first call still gets its own `model.<role>` span (measured finding:
+    `TracingMiddleware`'s own span otherwise sees only the
     retried response).
 
     `instruction` -- the retry text appended as a `HumanMessage`, required
-    with no default (hl12 stage 1, `docs/specs/stage-1.md`): this class
+    with no default: this class
     used to import a module-level `CRITIC_VERIFICATION_INSTRUCTION` from
     `prompts.py` directly; that constant is deleted along with every other
     hardcoded prompt string, so the caller now resolves it through
     `prompt_store.PromptStore.get(prompts.PROMPT_NAMES["critic_verification"],
     label=...)` and passes the text in. A default here would silently
-    reintroduce the exact hardcoded string this stage removes.
+    reintroduce the exact hardcoded string this project removes.
     """
 
     def __init__(
@@ -258,10 +257,11 @@ class CriticVerificationMiddleware(
         return await handler(self._retry_request(request))
 
     def _retry_request(self, request: ModelRequest[ContextT]) -> ModelRequest[ContextT]:
-        # No longer a @staticmethod (hl12 stage 1): it now reads
+        # No longer a @staticmethod: it now reads
         # self.instruction, the caller-injected retry text, instead of the
-        # module-level CRITIC_VERIFICATION_INSTRUCTION constant this stage
-        # deletes. The retry mechanics below are otherwise unchanged.
+        # module-level CRITIC_VERIFICATION_INSTRUCTION constant this
+        # project deletes. The retry mechanics below are otherwise
+        # unchanged.
         #
         # The retry forces a tool call at the API level (ChatOpenAI
         # translates "any" into "required"). Enforcement must ride
@@ -321,8 +321,8 @@ class RoundStabilityMiddleware(
     recent `HumanMessage`") -- state left over from an earlier question can
     never trigger a refusal on the first call of a new one.
 
-    Defines **both** `wrap_tool_call` and `awrap_tool_call` (D3.1b). Keyed on
-    `SUPERVISOR_DELEGATION_TOOLS` (D3.7), not hl10's `delegate_to_*` names.
+    Defines **both** `wrap_tool_call` and `awrap_tool_call`. Keyed on
+    `SUPERVISOR_DELEGATION_TOOLS`, not hl10's `delegate_to_*` names.
     """
 
     def wrap_tool_call(
@@ -416,13 +416,13 @@ class SaveReportGuardMiddleware(
     `RoundStabilityMiddleware` guards against), and no `save_report` call
     exists since that same boundary.
 
-    **REVISE-stalled** (stage-9d D9d.1). Fires when the response carries no
+    **REVISE-stalled.** Fires when the response carries no
     tool calls, `research` has run since the most recent `HumanMessage`, no
     *executed* `save_report` exists since that boundary, and the verdict is
     not APPROVE. This path exists because a `save_report` refused by
     `SaveReportVerdictGuardMiddleware` on a standing REVISE left the model
-    with nothing but the refusal string to act on, and two cases in the
-    stage-9c live run simply stopped there and answered the user in prose
+    with nothing but the refusal string to act on, and two cases in an
+    earlier live run simply stopped there and answered the user in prose
     -- read from those runs' own span dumps, where the refused
     `tool.save_report` span sits beside an empty output directory.
 
@@ -445,8 +445,8 @@ class SaveReportGuardMiddleware(
     `ProviderStrategy` path, where the same field is measured to be a no-op
     and `model_settings` must carry it instead).
 
-    Defines **both** `wrap_model_call` and `awrap_model_call` (D3.1b). Keyed
-    on `SUPERVISOR_DELEGATION_TOOLS`'s `"critique"` (D3.7), not hl10's
+    Defines **both** `wrap_model_call` and `awrap_model_call`. Keyed
+    on `SUPERVISOR_DELEGATION_TOOLS`'s `"critique"`, not hl10's
     `delegate_to_critic`.
 
     `role`, default `"supervisor"` -- the only role this middleware is ever
@@ -502,15 +502,16 @@ class SaveReportGuardMiddleware(
         if request.state.get("verdict") == "APPROVE":
             if not _run_tool_call_ids(messages, "critique"):
                 return None
-            # D9e.14: no "already emitted a save_report call" check here.
+            # No "already emitted a save_report call" check here.
             # `_has_executed_save_report` above already returns early for a
             # *successful* save; this branch is reached whenever a
             # save_report was emitted but never resolved into a non-error
             # result -- a refused save (SaveReportVerdictGuardMiddleware),
-            # or one still pending (e.g. paused at the HITL gate). The
-            # removed check treated "emitted" as good enough and went
-            # silent on exactly the runs stage 9c/9d found stuck: a
-            # save_report refused on a standing REVISE, then never retried.
+            # or one still pending (e.g. paused at the HITL gate). A
+            # removed earlier check treated "emitted" as good enough and
+            # went silent on exactly the runs an earlier live run found
+            # stuck: a save_report refused on a standing REVISE, then
+            # never retried.
             return _SAVE_REPORT_NUDGE
 
         if not _run_tool_call_ids(messages, "research"):
@@ -548,7 +549,7 @@ class SaveReportGuardMiddleware(
 class RevisionCapMiddleware(
     AgentMiddleware[AgentState[ResponseT], ContextT, ResponseT]
 ):
-    """The Supervisor's per-question revision cap (stage-4 spec D4.5).
+    """The Supervisor's per-question revision cap.
 
     Refuses a `critique` call once `max_revisions + 1` calls have already
     been emitted since the most recent `HumanMessage`. Counts **emitted**
@@ -569,7 +570,7 @@ class RevisionCapMiddleware(
     `Command(resume=...)`, so a human pause silently refills the budget
     (both measured against the installed langgraph).
 
-    Defines **both** `wrap_tool_call` and `awrap_tool_call` (D3.1b).
+    Defines **both** `wrap_tool_call` and `awrap_tool_call`.
     """
 
     def __init__(self, max_revisions: int) -> None:
@@ -627,7 +628,7 @@ def emitted_critique_count(
     `HumanMessage`, optionally excluding one in-flight call id.
 
     Shared between `RevisionCapMiddleware` (the cap itself) and
-    `supervisor.py`'s verdict guard (D4.18), so both read "rounds remain"
+    `supervisor.py`'s verdict guard, so both read "rounds remain"
     off the same counter -- one lifecycle on the supervisor path, not two.
     """
     ids = _run_tool_call_ids(messages, "critique")
@@ -640,7 +641,7 @@ class SaveReportVerdictGuardMiddleware(
     AgentMiddleware[AgentState[ResponseT], ContextT, ResponseT]
 ):
     """Refuses `save_report` on a non-APPROVE verdict while revision rounds
-    remain (stage-4 spec D4.18).
+    remain.
 
     Refuses when, since the most recent `HumanMessage`: no non-error
     `critique` `ToolMessage` exists at all, **or** the standing
@@ -665,7 +666,7 @@ class SaveReportVerdictGuardMiddleware(
     `critique` while rounds remain; `SaveReportGuardMiddleware` nudges only
     on an APPROVE-unsaved response, not this case.
 
-    Defines **both** `wrap_tool_call` and `awrap_tool_call` (D3.1b).
+    Defines **both** `wrap_tool_call` and `awrap_tool_call`.
     """
 
     def __init__(self, max_revisions: int) -> None:
@@ -740,8 +741,8 @@ def truncate_for_span(text: str, max_length: int) -> str:
     """Cap `text` at `max_length`, marking that it was cut.
 
     Used by both this module's `TracingMiddleware` (`tool.args`/
-    `tool.result`) and `tools.py`'s `knowledge_search` (`retrieval.chunks`,
-    `docs/specs/stage-5.md` D5.8) -- both infra, so this lives here rather
+    `tool.result`) and `tools.py`'s `knowledge_search` (`retrieval.chunks`)
+    -- both infra, so this lives here rather
     than in `observability.py` (obs), which infra may not import
     (`tests/test_layering.py`'s `MAY_IMPORT[INFRA]` has no `OBS` entry).
     """
@@ -792,9 +793,9 @@ def _set_model_call_usage_attributes(
     model_name = getattr(request.model, "model_name", None)
     if model_name is None:
         return
-    # Two names for one fact, on purpose (stage 9e, D9e.20). The
+    # Two names for one fact, on purpose. The
     # `gen_ai.*` pair is the OpenTelemetry semantic convention and is
-    # what `runs/<id>/spans.json` -- this project's own source of truth
+    # what the offline span dump -- this project's own source of truth
     # for every published number -- is read against. The `langfuse.*`
     # pair is Langfuse's own ingestion contract
     # (`langfuse/_client/attributes.py`'s `LangfuseOtelSpanAttributes`),
@@ -822,8 +823,7 @@ def record_superseded_model_call(
     response: ModelResponse[ResponseT],
 ) -> None:
     """Emit a standalone `model.<role>` span for one real, billed model call
-    that a retrying middleware is about to discard (stage 9e, phase 3,
-    `docs/specs/stage-9e.md`'s dated R.2 line).
+    that a retrying middleware is about to discard.
 
     `TracingMiddleware`'s own `model.<role>` span wraps the whole node visit
     -- one `handler()` call from its own perspective -- so when an inner
@@ -847,16 +847,16 @@ class TracingMiddleware(AgentMiddleware[AgentState[ResponseT], ContextT, Respons
     """One span per model call (`model.<role>`, token usage and cost as
     attributes) and one per tool call (`tool.<name>`, args and result,
     both truncated) -- appended to every sub-agent's and the Supervisor's
-    own `agent_middleware()` stack (stage 5, `docs/specs/stage-5.md`,
-    D5.10). Reaches OpenTelemetry's ambient global tracer directly
-    (`trace.get_tracer(__name__)`), never `observability.py` itself (D5.3)
-    -- the span this creates nests under whatever `main.py`'s per-turn
-    `repl.question` span or a delegation-site `agent.<role>` span (D5.9)
-    currently has open, via the same `contextvars`-backed propagation
-    OpenTelemetry already provides with no explicit wiring.
+    own `agent_middleware()` stack. Reaches OpenTelemetry's ambient global
+    tracer directly (`trace.get_tracer(__name__)`), never
+    `observability.py` itself -- the span this creates nests under
+    whatever `main.py`'s per-turn `repl.question` span or a
+    delegation-site `agent.<role>` span currently has open, via the same
+    `contextvars`-backed propagation OpenTelemetry already provides with
+    no explicit wiring.
 
     Defines **both** `wrap_model_call`/`awrap_model_call` and
-    `wrap_tool_call`/`awrap_tool_call` (D3.1b).
+    `wrap_tool_call`/`awrap_tool_call`.
     """
 
     _MAX_PAYLOAD_LENGTH = 2000  # Settings.max_span_payload_length's default;
@@ -967,17 +967,16 @@ def agent_middleware(
         Per-run tool-call budget, e.g. `settings.researcher_max_tool_calls`.
     role : str
         Passed straight through to `TracingMiddleware` for its span names
-        (`model.<role>`) -- required, no default (stage 5,
-        `docs/specs/stage-5.md` D5.10: a `TracingMiddleware` silently
-        mislabelled by a missing role is worse than a loud `TypeError` at
-        every one of this function's six real call sites).
+        (`model.<role>`) -- required, no default: a `TracingMiddleware`
+        silently mislabelled by a missing role is worse than a loud
+        `TypeError` at every one of this function's six real call sites.
     model_call_limit : int, default `_MODEL_CALL_LIMIT`
         Per-run model-call budget -- the only bound on a model that loops
         producing text without tool calls, which `ToolCallLimitMiddleware`
         cannot see.
     tool_exit_behavior : "continue" | "error" | "end", default "continue"
         Forwarded to `ToolCallLimitMiddleware`. The three sub-agents keep
-        the library default; the Supervisor (stage-4 spec D4.15) passes
+        the library default; the Supervisor passes
         `"end"` -- with `"continue"`, a blocked call stays visible in
         `last_ai_message.tool_calls` and `HumanInTheLoopMiddleware` still
         interrupts for it (measured: ordering the Supervisor's middleware
@@ -994,7 +993,7 @@ def agent_middleware(
         the actual model/tool call, so it sees the real request/response,
         not a limit-refused stand-in). Callers append their own
         agent-specific middleware (`ReadUrlCapMiddleware`,
-        `CriticVerificationMiddleware`) after this list, since under D3.2
+        `CriticVerificationMiddleware`) after this list, since
         agent factories no longer assemble any part of their own stack.
 
     Notes

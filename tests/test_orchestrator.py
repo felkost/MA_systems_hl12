@@ -1,6 +1,4 @@
-"""`orchestrator.py`: the explicit `StateGraph` coordination path
-(`docs/specs/stage-4.md`).
-"""
+"""`orchestrator.py`: the explicit `StateGraph` coordination path."""
 
 from __future__ import annotations
 
@@ -112,7 +110,7 @@ def _role_models(
     }
 
 
-# -- D4.4: the scope gate --
+# -- The scope gate --
 
 
 def test_out_of_scope_request_never_reaches_research_or_saves() -> None:
@@ -144,7 +142,7 @@ def test_in_scope_request_reaches_the_hitl_gate() -> None:
     assert calls == []
 
 
-# -- D4.4: the composer produces both save_report args --
+# -- The composer produces both save_report args --
 
 
 def test_composer_produces_a_filename_and_content() -> None:
@@ -162,7 +160,7 @@ def test_composer_produces_a_filename_and_content() -> None:
     assert draft.content == "# Report\n\nBody text"
 
 
-# -- D4.4/D4.16: the HITL gate, approve and reject --
+# -- The HITL gate, approve and reject --
 
 
 def test_save_executes_exactly_once_after_approve() -> None:
@@ -218,7 +216,7 @@ def test_hitl_gate_uses_the_same_allowed_decisions_as_the_supervisor_path() -> N
     ]
 
 
-# -- D4.5: the revision cap / router's three branches --
+# -- The revision cap / router's three branches --
 
 
 def test_revise_under_the_cap_loops_back_to_research() -> None:
@@ -237,8 +235,9 @@ def test_revise_under_the_cap_loops_back_to_research() -> None:
 
 
 def test_revise_at_the_cap_still_reaches_the_composer() -> None:
-    """A cap-exhausted REVISE run must still produce a report (D4.4's twin
-    of the supervisor path's D4.18 guard) -- not a dead end. With
+    """A cap-exhausted REVISE run must still produce a report (the graph
+    path's twin of the supervisor path's save-guard behavior) -- not a dead
+    end. With
     max_revisions=1 the cap allows max_revisions+1=2 total critique calls,
     matching the supervisor path's arithmetic exactly."""
     fake_save, _ = _fake_save_report()
@@ -257,7 +256,7 @@ def test_revise_at_the_cap_still_reaches_the_composer() -> None:
 
 
 def test_revision_cap_boundary_matches_the_supervisor_path_arithmetic() -> None:
-    """`docs/specs/stage-4.md` D4.5: for max_revisions in {1,2,3}, total
+    """For max_revisions in {1,2,3}, total
     critique calls = {2,3,4} on both paths. Pinned here for the graph path
     with an always-REVISE critic, stopping only once the cap is exhausted."""
     for max_revisions, expected_calls in ((1, 2), (2, 3), (3, 4)):
@@ -292,7 +291,7 @@ def test_revision_round_starts_at_zero_and_increments_only_on_revise() -> None:
     assert result["revision_round"] == 0
 
 
-# -- D4.3 (path 2): the original request is forwarded by code --
+# -- The original request is forwarded by code, on the graph path too --
 
 
 def test_original_request_is_forwarded_to_the_researcher() -> None:

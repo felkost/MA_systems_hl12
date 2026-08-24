@@ -1,5 +1,4 @@
-"""Gate-tier validation of the three component GEval definitions
-(stage 7, D7.4).
+"""Gate-tier validation of the three component GEval definitions.
 
 DeepEval's `GEval` (`deepeval==4.1.10`, measured) constructs cleanly with
 neither `criteria` nor `evaluation_steps`, and with no `evaluation_params`
@@ -27,9 +26,9 @@ def _fake_model() -> OpenRouterModel:
 
 def _param_values(metric: GEval) -> set[str]:
     # `evaluation_params` is typed `list[SingleTurnParams] | None` because
-    # GEval also permits building one with no params at all (measured,
-    # docs/specs/stage-7.md M2) -- never true for the three factories under
-    # test here, which all pass a concrete list.
+    # GEval also permits building one with no params at all (measured) --
+    # never true for the three factories under test here, which all pass a
+    # concrete list.
     assert metric.evaluation_params is not None
     return {param.value for param in metric.evaluation_params}
 

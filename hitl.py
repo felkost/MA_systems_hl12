@@ -1,7 +1,7 @@
 """The REPL's three-choice UX over the installed `HumanInTheLoopMiddleware`
-decision contract, shared by both coordination paths (`docs/specs/stage-4.md`).
+decision contract, shared by both coordination paths.
 
-**D4.1 -- `edit` is not a real edit.** The assignment implies `edit` carries
+**`edit` is not a real edit.** The assignment implies `edit` carries
 an edited action; the installed `EditDecision` requires
 `edited_action={"name": ..., "args": ...}`, which a human's free-text
 feedback string is not, and sending it as-is raises `KeyError: 'name'`
@@ -19,7 +19,7 @@ list) -- it would otherwise inject a synthetic *successful* `ToolMessage`
 without writing anything, telling the Supervisor a save happened when it
 did not.
 
-**D4.16 -- unlike hl10, `build_interrupt_request` returns.** hl10 dropped it
+**Unlike hl10, `build_interrupt_request` returns.** hl10 dropped it
 because it had exactly one coordination path
 (`HumanInTheLoopMiddleware` on the Supervisor); this project restores the
 two-path condition that made it necessary in an earlier iteration.
@@ -51,7 +51,7 @@ from langchain_core.messages import BaseMessage, ToolMessage
 
 ReplChoice = Literal["approve", "edit", "reject"]
 
-# D4.1: the SDK-level guarantee that `respond` (and, since this REPL never
+# The SDK-level guarantee that `respond` (and, since this REPL never
 # emits one, `edit` as a real `EditDecision`) is refused outright.
 ALLOWED_DECISIONS: list[DecisionType] = ["approve", "reject"]
 
@@ -127,7 +127,7 @@ def build_interrupt_request(
     HITLRequest
         `review_configs` all carry `ALLOWED_DECISIONS` -- the same
         `["approve", "reject"]` list `save_report`'s `InterruptOnConfig`
-        uses on the supervisor path (D4.1), so the two paths gate the same
+        uses on the supervisor path, so the two paths gate the same
         set of decisions even though one raises through middleware and the
         other through a raw `interrupt()` call.
     """
@@ -232,10 +232,10 @@ def render_save_status(outcomes: Sequence[BaseMessage]) -> str:
     Notes
     -----
     hl10 measured a live session where the model's closing text claimed a
-    save had happened after two human rejections, with nothing on disk
-    (`MA_systems_hl10/hitl.py`, D8). The truth source is the `save_report`
+    save had happened after two human rejections, with nothing on disk.
+    The truth source is the `save_report`
     `ToolMessage` itself: `status="error"` covers both a policy-class
-    refusal (D4.18's guard, `RoundStabilityMiddleware`,
+    refusal (the verdict guard, `RoundStabilityMiddleware`,
     `HumanInTheLoopMiddleware`'s own rejection `ToolMessage`) and a genuine
     tool-level failure whose content also carries the `"ERROR:"` prefix
     every tool in this project uses.

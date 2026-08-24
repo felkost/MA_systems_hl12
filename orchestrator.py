@@ -1,10 +1,9 @@
-"""`orchestrator.py`: the explicit `StateGraph` coordination path
-(`docs/specs/stage-4.md`).
+"""`orchestrator.py`: the explicit `StateGraph` coordination path.
 
 Nodes: `planner` -> **scope gate** -> `researcher` -> `critic` ->
 (revision loop back to `researcher`, or) `composer` -> `hitl_gate` -> `save`.
 
-**D4.4 -- two nodes the agent-as-tool path gets for free that this path
+**Two nodes the agent-as-tool path gets for free that this path
 must build explicitly.** The scope gate exists because this path has no
 model reading the Planner's prompt-level out-of-scope rule (`_S1` rule 1a)
 -- without it, an out-of-scope request would be researched and a report
@@ -12,28 +11,28 @@ saved about it. The composer exists because nobody here writes the final
 Markdown otherwise: on the agent-as-tool path the Supervisor model composes
 it; this path's Critic node ends the loop with a verdict, not a report.
 
-**D4.4 -- `revision_round` is incremented inside the critic node's return
+**`revision_round` is incremented inside the critic node's return
 value, never inside the router.** `add_conditional_edges`'s `path` callable
 returns a destination name and cannot write state (installed
 `langgraph.graph.state`) -- the increment has to happen in the node that
 runs before the router reads it.
 
-**D4.5/D4.16 -- the HITL gate is manual, not `HumanInTheLoopMiddleware`.**
+**The HITL gate is manual, not `HumanInTheLoopMiddleware`.**
 This path never touches `create_agent`'s middleware system, so `hitl_gate`
 calls `langgraph.types.interrupt` directly, on a payload built by
 `hitl.build_interrupt_request` -- the same shape, same
 `allowed_decisions=["approve", "reject"]`, that `HumanInTheLoopMiddleware`
-itself builds for `save_report` on the supervisor path (D4.1), so one REPL
+itself builds for `save_report` on the supervisor path, so one REPL
 loop (`main.py`) can resolve either path's interrupt without knowing which
 path raised it.
 
-**D4.20 -- the fixed Planner -> Researcher -> Critic edges are a declared
-exception to CLAUDE.md's "no hardcoded tool-call order" ban.** That ban is
-scoped to an agent factory, where the model decides the sequence; this
+**The fixed Planner -> Researcher -> Critic edges are a declared
+exception to this project's "no hardcoded tool-call order" ban.** That ban
+is scoped to an agent factory, where the model decides the sequence; this
 module is not one, and its determinism is exactly the property being
 compared against the agent-as-tool path.
 
-**D4.5 -- the revision cap, independent of the supervisor path's.**
+**The revision cap, independent of the supervisor path's.**
 `revision_round` starts at 0, increments only on the REVISE back-edge, and
 the router's guard is `revision_round < max_revisions + 1` --
 `revision_round` counts *completed* REVISE calls, so after N of them it
@@ -42,7 +41,8 @@ supervisor path allows: `max_revisions + 1` total critique calls
 (`middleware.RevisionCapMiddleware`'s emitted count). `< max_revisions`
 under-counts by exactly one call; caught by a scripted test, not by
 re-reading the arithmetic a second time. Enforced by an entirely separate
-counter from the supervisor path's, on purpose (CLAUDE.md's invariant).
+counter from the supervisor path's, on purpose (this project's own
+invariant).
 """
 
 from __future__ import annotations
@@ -90,7 +90,7 @@ from schemas import (
 
 class OrchestratorState(TypedDict):
     """This path's own state -- `revision_round` lives here, not on
-    `SupervisorState` (D4.2's own note on why not)."""
+    `SupervisorState`."""
 
     messages: Annotated[list[BaseMessage], add_messages]
     revision_round: NotRequired[int]
@@ -152,14 +152,14 @@ def create_orchestrator_graph(
         `"composer"` entry; the composer replaces work the Supervisor model
         does on the other path).
     prompt_store : PromptStore
-        Resolves all five prompts this graph needs (hl12 stage 1) -- see
+        Resolves all five prompts this graph needs -- see
         `supervisor.create_supervisor`'s own docstring for why this is
         required, not optional.
     base_tools : Sequence of BaseTool, optional
         Defaults to `tools.SUPERVISOR_TOOLS`; `save_report` is looked up by
         name so a test can inject a fake one.
     checkpointer : BaseCheckpointSaver, optional
-        Only this compiled graph gets one (D3.6, D4.10); every sub-agent
+        Only this compiled graph gets one; every sub-agent
         stays uncheckpointed.
 
     Returns
@@ -213,11 +213,10 @@ def create_orchestrator_graph(
         response_format=ProviderStrategy(ReportDraft, strict=True),
         # No agent_middleware() stack -- the composer has no tools, so the
         # tool-call-limit/retry machinery has nothing to guard. TracingMiddleware
-        # alone still gets its model-call span (D5.9/D5.10's own gap, found
-        # during implementation: composer_graph previously had no middleware
-        # list at all, so its model calls would have been invisible to the
-        # "every agent call, not just the top-level" requirement the plan's
-        # own Langfuse-rules table states).
+        # alone still gets its model-call span (found during implementation:
+        # composer_graph previously had no middleware list at all, so its
+        # model calls would have been invisible to the "every agent call,
+        # not just the top-level" tracing requirement).
         middleware=[TracingMiddleware(role="composer")],
     )
 
@@ -293,8 +292,8 @@ def create_orchestrator_graph(
         if state.get("revision_round", 0) < settings.max_revisions + 1:
             return "researcher"
         # Cap reached with a standing REVISE: still composer, not a dead
-        # end -- the run must produce something (D4.18's supervisor-path
-        # twin: a cap-exhausted run may still save).
+        # end -- the run must produce something (the supervisor path's
+        # own twin rule: a cap-exhausted run may still save).
         return "composer"
 
     def composer_node(state: OrchestratorState) -> dict[str, Any]:

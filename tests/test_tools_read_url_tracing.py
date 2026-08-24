@@ -1,6 +1,5 @@
 """`read_url` records the fetched page's text onto the current span,
-symmetrically with `knowledge_search` (stage 9e, D9e.7's third lever,
-`docs/specs/stage-9e.md`)."""
+symmetrically with `knowledge_search`."""
 
 from __future__ import annotations
 

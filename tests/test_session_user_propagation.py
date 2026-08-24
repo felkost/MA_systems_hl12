@@ -1,10 +1,10 @@
 """`observability.run_context`/`set_trace_io` -- session/user tracking
-(requirement R2), stage 2, `docs/specs/stage-2.md`.
+(requirement R2).
 
 Proves every span of one turn carries `session.id`/`user.id` under the
 SDK's own constant names (never a hand-typed string literal), and that the
 root span carries `TRACE_INPUT`/`TRACE_OUTPUT` after `set_trace_io` -- what
-stage 4's judges will read `{{input}}`/`{{output}}` from.
+the online judges read `{{input}}`/`{{output}}` from.
 """
 
 from __future__ import annotations
@@ -27,7 +27,7 @@ from tests.test_observability import _reset_otel_global_state
 
 def _settings(**overrides: Any) -> Settings:
     # See tests/test_observability.py's identical helper: without this
-    # default, a developer `.env` with TRACING_ENABLED=true and real
+    # default, a developer environment with TRACING_ENABLED=true and real
     # Langfuse keys makes configure_observability(_settings()) build a
     # REAL client here too.
     overrides.setdefault("tracing_enabled", False)
@@ -98,18 +98,19 @@ def test_root_span_carries_trace_input_and_output_after_set_trace_io(
 def test_root_span_also_carries_observation_input_and_output(
     tmp_path: Path,
 ) -> None:
-    """Non-regression for the stage-4 live defect: the trace-level pair alone
-    left every judge scoring an empty string.
+    """Non-regression for a live defect: the trace-level pair alone left
+    every judge scoring an empty string.
 
     A Langfuse LLM-as-a-judge evaluation rule targets an *observation*
     (`EvaluationRuleTarget` has only `OBSERVATION`/`EXPERIMENT`; there is no
     `TRACE` member), so its `{{input}}`/`{{output}}` mapping reads
     `OBSERVATION_INPUT`/`OBSERVATION_OUTPUT` -- a different pair of SDK
     constants from the `TRACE_*` one above. Measured against a real Langfuse
-    export of the stage-4 run: all four traces carried the trace-level pair
-    correctly and every root observation's own `input`/`output` was `null`,
-    so all sixteen scores judged nothing. One judge scored 1.0 on that empty
-    input and invented a report to justify it.
+    export of a live run with four online judges: all four traces carried
+    the trace-level pair correctly and every root observation's own
+    `input`/`output` was `null`, so all sixteen scores judged nothing. One
+    judge scored 1.0 on that empty input and invented a report to justify
+    it.
     """
     _reset_otel_global_state()
     handle = observability.configure_observability(

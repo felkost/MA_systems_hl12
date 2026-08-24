@@ -22,8 +22,7 @@ venv/
 # .env.example; this covers whatever lands here.
 .deepeval*
 
-# Local-only working areas, by explicit decision (CLAUDE.md, "Language and
-# tracking policy"): the plan, stage specs, stage reports and diagram
+# Local-only working areas: the plan, stage specs, stage reports and diagram
 # sources never reach the remote, so every session must run from this same
 # checkout. tests/ is NOT listed here -- it is the deliverable of this
 # assignment and must be in the clone.
@@ -33,11 +32,11 @@ docs/
 # index would go stale against data/ with no signal that it had.
 index/
 
-# Local prompt-text fallback (stage 1, prompt_store.LangfusePromptStore).
+# Local prompt-text fallback (prompt_store.LangfusePromptStore).
 # Never a source of truth: a stale, tracked snapshot could silently become
 # the prompt every clone actually runs if a Langfuse fetch ever failed --
 # it exists only so *this* checkout survives one bad fetch. The real source
-# of truth is Langfuse itself; see docs/prompt-seeds-hl12.md to reseed it.
+# of truth is Langfuse itself.
 prompts/
 
 # Runtime logs, evaluation run artefacts and crash-recovery checkpoints.
@@ -55,9 +54,9 @@ output/*
 !output/.gitkeep
 !output/*.md
 
-# Markdown: only README.md is tracked at the top level. The agent-facing
-# documents (CLAUDE.md, AGENTS.md, CONTRIBUTING.md, insights.md,
-# handoff.md) are local-only by the same decision that keeps docs/ local.
+# Markdown: only README.md is tracked at the top level. Other top-level
+# markdown files (agent-facing instructions and planning notes) are
+# local-only.
 *.md
 !README.md
 
@@ -68,13 +67,12 @@ output/*
 !evals/fixtures/*.md
 !tests/**/*.md
 
-# Stage 4: the judge prompt texts are the deliverable a human transcribes
-# into the Langfuse UI by hand (CLAUDE.md's Architecture table) -- without
-# this negation the *.md rule above silently swallows them too, and
-# evaluator_specs.json's own judge_prompt_file paths would point at files
-# that don't exist in a fresh clone (found via git status --ignored before
-# the stage-4 handover, not by a test -- nothing in the gate suite checks
-# .gitignore content, the same class of gap stage 1 hit once already).
+# The judge prompt texts are the deliverable a human transcribes into the
+# Langfuse UI by hand -- without this negation the *.md rule above silently
+# swallows them too, and evaluator_specs.json's own judge_prompt_file paths
+# would point at files that don't exist in a fresh clone (found via
+# `git status --ignored`, not by a test -- nothing in the gate suite checks
+# .gitignore content).
 !evals/judge_prompts/*.md
 
 # report/ ships the rendered report and its figures, not the sources it was

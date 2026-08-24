@@ -1,8 +1,8 @@
 """Importing `retriever` must not pull in `sentence_transformers`.
 
 The cross-encoder reranker is the one local Hugging Face model left in this
-project's design (embeddings moved to OpenRouter -- see `docs/specs/stage-2.md`,
-"The embedding decision"). `sentence_transformers` is a heavy, slow import;
+project's design (embeddings moved to OpenRouter). `sentence_transformers`
+is a heavy, slow import;
 if `retriever.py` imported it at module scope, every gate run -- including
 one that never calls `knowledge_search` -- would pay that cost, and (per
 hl10's own finding) it eagerly pulls in more through

@@ -1,5 +1,5 @@
-"""`middleware.py` -- ported from `MA_systems_hl10` with two corrections
-(`docs/specs/stage-3.md`): D3.1b's precise hook contract, and D3.7's rename
+"""`middleware.py` -- ported from `MA_systems_hl10` with two corrections:
+a precise async-hook-override contract, and a rename
 of the two Supervisor-only classes onto this project's own tool names
 (`plan`/`research`/`critique`, not hl10's `delegate_to_*`).
 """
@@ -39,7 +39,7 @@ def _middleware_classes() -> list[type[AgentMiddleware[Any, Any, Any]]]:
     ]
 
 
-# -- D3.1b: override detected by identity, not inspect.iscoroutinefunction --
+# -- Override detected by identity, not inspect.iscoroutinefunction --
 # Measured: the *base* AgentMiddleware.awrap_tool_call is itself an async def
 # that raises NotImplementedError, so iscoroutinefunction(base.awrap_tool_call)
 # is True -- it cannot distinguish "overridden" from "inherited". The correct
@@ -179,11 +179,10 @@ def test_agent_middleware_appends_a_tracing_middleware_for_the_given_role() -> N
     assert tracer.role == "researcher"
 
 
-# -- Stage 5, D5.10: TracingMiddleware -- model-call spans carry token usage
+# -- TracingMiddleware -- model-call spans carry token usage
 # and cost; tool-call spans carry JSON-serialized args, never a raw dict
 # (OTel silently drops a dict-valued span attribute, measured against the
-# installed opentelemetry-sdk -- docs/specs/stage-5.md, D5.10 first
-# correction).
+# installed opentelemetry-sdk).
 
 
 def _recording_provider() -> tuple[Any, Any]:
@@ -232,10 +231,10 @@ def test_tracing_middleware_records_token_usage_and_cost_on_model_call() -> None
         assert model_span.attributes["gen_ai.usage.cost_usd"] == pytest.approx(
             1000 * 0.0000004 + 500 * 0.0000016
         )
-        # D9e.20: Langfuse only populates its own native model/cost columns
+        # Langfuse only populates its own native model/cost columns
         # from its own attribute names (`langfuse/_client/attributes.py`),
-        # not from the `gen_ai.*` OTel pair alone -- measured live, stage 9e
-        # phase 1b: every model.* span reached Langfuse with the right
+        # not from the `gen_ai.*` OTel pair alone -- measured live: every
+        # model.* span reached Langfuse with the right
         # figures sitting unread in `metadata`, and `providedModelName`/
         # `costDetails`/`totalCost` empty.
         assert model_span.attributes["gen_ai.request.model"] == "openai/gpt-4.1-mini"
@@ -256,17 +255,16 @@ def test_tracing_middleware_records_token_usage_and_cost_on_model_call() -> None
         otel_trace._TRACER_PROVIDER_SET_ONCE = Once()
 
 
-# -- Stage 9e, phase 3 R.2: a retry inside `wrap_model_call` must not erase
+# -- A retry inside `wrap_model_call` must not erase
 # the discarded call's own token usage. `TracingMiddleware`'s own
 # `model.<role>` span wraps the *composed* `handler()` call, so when an
 # inner middleware (`CriticVerificationMiddleware`, `SaveReportGuardMiddleware`,
 # `grounding.UnsupportedClaimMiddleware`) retries by calling `handler()` a
 # second time, `TracingMiddleware` only ever sees the final response --
-# verified offline this stage with exactly this nesting (`TracingMiddleware`
+# verified offline with exactly this nesting (`TracingMiddleware`
 # outer, a one-shot retry middleware inner, a fake model returning two
 # distinct `usage_metadata` payloads), producing one `model.<role>` span
-# carrying only the second call's counts (`docs/specs/stage-9e.md`'s dated
-# R.2 line, "phase 3, H3a/H3b/H3c probes run"). The fix: the retrying
+# carrying only the second call's counts. The fix: the retrying
 # middleware itself records the first (discarded) response's usage via
 # `middleware.record_superseded_model_call` before retrying, so the two
 # real calls together produce two spans.
@@ -382,7 +380,7 @@ def test_truncate_for_span_marks_truncation_when_text_exceeds_max_length() -> No
     assert len(result) < 50
 
 
-# -- Test 14: D3.7's renamed tool set, vacuous until stage 4 by design --
+# -- The renamed tool set, vacuous until the coordinators exist by design --
 
 
 def _tool_call_request(
@@ -416,7 +414,7 @@ def _tool_result(call_id: str, content: str, *, is_error: bool = False) -> ToolM
     )
 
 
-# -- Stage-4 spec D4.5: RevisionCapMiddleware --
+# -- RevisionCapMiddleware --
 
 
 def test_revision_cap_allows_calls_up_to_max_revisions_plus_one() -> None:
@@ -471,7 +469,7 @@ def test_revision_cap_ignores_non_critique_tools() -> None:
     assert result == _tool_result("c1", "ok")
 
 
-# -- Stage-4 spec D4.18: SaveReportVerdictGuardMiddleware --
+# -- SaveReportVerdictGuardMiddleware --
 
 
 def test_verdict_guard_refuses_without_any_completed_critique() -> None:
@@ -548,7 +546,7 @@ def test_verdict_guard_refuses_revise_while_rounds_remain() -> None:
 
 
 def test_verdict_guard_allows_save_once_the_cap_is_exhausted_on_revise() -> None:
-    """A cap-exhausted REVISE run must still be able to save (D4.18) --
+    """A cap-exhausted REVISE run must still be able to save --
     otherwise the run deadlocks against `_S1` rule 5's "stopped revising for
     any reason, save now"."""
     critique_ai = _ai_with_calls(
@@ -583,7 +581,7 @@ def test_verdict_guard_ignores_other_tools() -> None:
     assert result == ToolMessage("ok", tool_call_id="c1")
 
 
-# -- Stage-4 spec D4.15: agent_middleware(tool_exit_behavior=...) --
+# -- agent_middleware(tool_exit_behavior=...) --
 
 
 def test_agent_middleware_default_exit_behavior_is_continue() -> None:
@@ -601,18 +599,18 @@ def test_agent_middleware_accepts_end_exit_behavior_for_the_supervisor() -> None
 
 
 def test_stability_tools_match_the_supervisor_tool_names() -> None:
-    """Pinned against CLAUDE.md's `supervisor.py` row / hl8's `_S1`
-    (`plan`, `research`, `critique`, `save_report`), not against
-    `supervisor.py` itself -- it does not exist until stage 4. The rule is
+    """Pinned against `supervisor.py`'s declared tool set (hl8's `_S1`:
+    `plan`, `research`, `critique`, `save_report`), not against
+    `supervisor.py` itself -- it may not exist yet. The rule is
     written before the code it constrains, the same shape as
     `test_forbidden_pairs_never_import_each_other`."""
     expected = frozenset({"research", "critique"})
     assert middleware.SUPERVISOR_DELEGATION_TOOLS == expected
 
 
-# -- Stage-9d D9d.1: SaveReportGuardMiddleware's REVISE-path nudge --
+# -- SaveReportGuardMiddleware's REVISE-path nudge --
 #
-# The stage-9c live run produced two cases whose `save_report` was refused by
+# A live run produced two cases whose `save_report` was refused by
 # `SaveReportVerdictGuardMiddleware` on a standing REVISE while rounds
 # remained, after which the Supervisor ended its turn conversationally
 # instead of re-entering the loop -- confirmed from those runs' own span
@@ -696,12 +694,12 @@ def test_save_report_guard_still_nudges_on_approve_unsaved() -> None:
     assert "save_report" in str(seen[1].messages[-1].content)
 
 
-# -- Stage-9e D9e.14: middleware.py:466-467 removed --
+# -- middleware.py's old `_run_tool_call_ids`-based check removed --
 #
 # `_run_tool_call_ids(messages, "save_report")` used to make the APPROVE
 # branch stand down the moment a save_report call was *emitted*, whether or
-# not it ever executed. That silenced the guard on exactly the runs
-# stage 9c/9d found stuck: a save_report refused by
+# not it ever executed. That silenced the guard on exactly the runs that
+# were found stuck: a save_report refused by
 # SaveReportVerdictGuardMiddleware on a standing REVISE, or one still
 # pending (e.g. paused at the HITL gate) with no ToolMessage at all yet.
 

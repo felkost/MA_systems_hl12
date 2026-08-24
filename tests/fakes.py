@@ -1,4 +1,4 @@
-"""Shared offline test doubles for stage 3's agent and middleware tests.
+"""Shared offline test doubles for the agent and middleware test suite.
 
 `FakeToolCallingModel` is the same shape both donor projects use to test
 agent factories without a network call: it accepts `bind_tools` (called
@@ -61,9 +61,9 @@ class _FakeTextPromptClient:
     `prompt_store.py` actually calls: `.prompt` (raw text), `.compile(**kw)`
     (naive `{{var}}` substitution, permissive like the real
     `TemplateParser.compile_template` -- an unmatched variable is left
-    literal), and `.is_fallback` (stage-1 SDK finding, `docs/specs/stage-1.md`
-    section 2: the real SDK sets this on a fallback-served client instead of
-    raising, whenever a `fallback=` value was given)."""
+    literal), and `.is_fallback` (a measured SDK behaviour: the real SDK
+    sets this on a fallback-served client instead of raising, whenever a
+    `fallback=` value was given)."""
 
     def __init__(self, prompt: str, *, is_fallback: bool = False) -> None:
         self.prompt = prompt
@@ -78,8 +78,7 @@ class _FakeTextPromptClient:
 
 class FakeLangfuse:
     """A `Langfuse` double holding prompts in memory, matching
-    `Langfuse.get_prompt`'s measured signature and fallback contract
-    (`docs/specs/stage-1.md`, section 2)."""
+    `Langfuse.get_prompt`'s measured signature and fallback contract."""
 
     def __init__(self, prompts: dict[str, str]) -> None:
         self._prompts = dict(prompts)
@@ -126,8 +125,8 @@ class FakeLangfuseDatasets:
     """A `Langfuse` double covering only the Datasets surface
     `evals.langfuse_dataset.sync_golden_dataset` calls -- `get_dataset`/
     `create_dataset`/`create_dataset_item` -- matching the real SDK's
-    measured signatures and its `NotFoundError`-on-missing-dataset contract
-    (`docs/specs/stage-3.md`, section 2). `NotFoundError` is the real
+    measured signatures and its `NotFoundError`-on-missing-dataset contract.
+    `NotFoundError` is the real
     `langfuse.api.NotFoundError`, not a stand-in, so a test proves the
     production code's `except NotFoundError` clause against the exact type
     it will see live."""
@@ -171,8 +170,7 @@ class RaisingLangfuseDatasets:
     """A `Langfuse` double whose `get_dataset` fails with something other
     than "not found" -- simulating a bad/expired API key (401/403) so a
     test can prove `sync_golden_dataset` does not misread an auth failure
-    as "dataset missing, create it" (the lane-1 correction,
-    `docs/specs/stage-3.md`, section 2)."""
+    as "dataset missing, create it"."""
 
     def get_dataset(self, name: str) -> dict[str, Any]:
         raise RuntimeError(f"401 Unauthorized while fetching dataset {name!r}")

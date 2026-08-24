@@ -1,11 +1,10 @@
 """`agents._allowlist` is the one place a factory checks what it was handed.
 
-Under stage 3's dependency-inversion design (`docs/specs/stage-3.md`, D3.2),
-an agent factory never imports `tools.py` -- it receives `tools` from its
-caller. That makes a caller's mistake a real risk a Planner handed
-`read_url` would silently gain a capability its architecture row denies it
-(D3.5). This module is the guard, shared by all three factories rather than
-duplicated three times.
+Under this dependency-inversion design, an agent factory never imports
+`tools.py` -- it receives `tools` from its caller. That makes a caller's
+mistake a real risk a Planner handed `read_url` would silently gain a
+capability its architecture row denies it. This module is the guard, shared
+by all three factories rather than duplicated three times.
 """
 
 from __future__ import annotations

@@ -1,5 +1,4 @@
-"""`report_text_or_closing_message` (stage 9a, `docs/specs/stage-9a.md`
-D9a.6a).
+"""`report_text_or_closing_message`.
 
 Offline: no live call, a hand-built `SupervisorLiveRun` and a real
 `tmp_path` standing in for the per-case `output_dir` `test_golden_dataset`

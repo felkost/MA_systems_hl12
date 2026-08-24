@@ -1,16 +1,16 @@
-"""Planner component tests -- GEval `Plan Quality` (R2a, `docs/task-hl11.md`).
+"""Planner component tests -- GEval `Plan Quality` (requirement R2a).
 
 `_plan_quality_metric` is a factory, not a module-level metric: DeepEval
 4.1.10 raises `DeepEvalError` at **construction** for any metric with no
 `model=`, which would break gate-tier collection of this file if the metric
-were built at import time (measured, `docs/specs/stage-7.md` M1/D7.3).
+were built at import time (measured behaviour).
 `tests/test_component_metric_definitions.py` calls this factory offline,
 with a fake model, to validate the definition without spending anything.
 
-Live inputs are golden `happy_path` cases (`docs/specs/stage-7.md`, D7.13),
-sent to the Planner exactly as production does -- the raw `input` string,
-no template (the Supervisor's own `plan` tool forwards the user's message
-unmodified, `supervisor.py`'s `_make_plan_tool`).
+Live inputs are golden `happy_path` cases, sent to the Planner exactly as
+production does -- the raw `input` string, no template (the Supervisor's
+own `plan` tool forwards the user's message unmodified,
+`supervisor.py`'s `_make_plan_tool`).
 """
 
 from __future__ import annotations
@@ -61,9 +61,9 @@ def _run_case(
     skip_without_index()
     agent_input = golden_input(case_id)
     live = run_agent_live("planner", agent_input, settings=live_settings)
-    # `name` is what `evals/summarize_e2e.py` prints as this line's test id
-    # (D9d.8); without it DeepEval's persisted file carries no way back to
-    # the test that produced the case.
+    # `name` is what `evals/summarize_e2e.py` prints as this line's test id;
+    # without it DeepEval's persisted file carries no way back to the test
+    # that produced the case.
     case = LLMTestCase(
         name=f"{test_name}[{case_id}]", input=agent_input, actual_output=live.output
     )
@@ -118,10 +118,10 @@ def test_plan_has_queries(
 def test_planner_recognizes_incoherent_nonsense_as_out_of_scope(
     live_settings: Settings, eval_run_id: str
 ) -> None:
-    """D9e.8 (`p2`) -- deterministic, no judge: `failure-nonsense-query`'s
-    own input has no coherent research question inside it, and `p2`'s new
-    incoherence criterion says that is out of scope the same way a personal
-    request is, not a topic for the Planner to invent a plan around.
+    """Deterministic, no judge: `failure-nonsense-query`'s own input has no
+    coherent research question inside it, and `p2`'s incoherence criterion
+    says that is out of scope the same way a personal request is, not a
+    topic for the Planner to invent a plan around.
 
     `assert plan.in_scope is False` is the whole check -- no GEval, no
     threshold, at the live agent's own cost alone (~$0.005 per the spec's

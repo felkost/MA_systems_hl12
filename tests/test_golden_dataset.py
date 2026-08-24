@@ -1,23 +1,23 @@
-"""Schema/contract tests for `tests/golden_dataset.json` (stage 6).
+"""Schema/contract tests for `tests/golden_dataset.json`.
 
-The dataset is the measuring instrument for stages 7-9; a malformed or
-drifted dataset would make every later stage's numbers meaningless without
-any of those stages' own tests catching it. These tests pin exactly what
-the brief and the plan require: three categories, five cases each, unique
-inputs, non-empty expected_output -- plus two project-specific guards the
-plan's own audit named:
+The dataset is the measuring instrument for every evaluation run built on
+top of it; a malformed or drifted dataset would make every later number
+meaningless without any of those checks catching it. These tests pin
+exactly what the brief and the plan require: three categories, five cases
+each, unique inputs, non-empty expected_output -- plus two project-specific
+guards the plan's own audit named:
 
 - the freshness case's cutoff must stay strictly ahead of the corpus's own
   freshest source, or it silently turns into a corpus lookup that passes
   for the wrong reason;
 - every case that needs a fixture file actually has one, present and
-  readable, so a stage-9 live run does not fail on a missing file instead
+  readable, so a live run does not fail on a missing file instead
   of measuring what it set out to measure.
 
 All of the above except the last (an explicit `@pytest.mark.smoke` test)
-run at gate tier, offline, with no dependency on `index/manifest.json` --
-`index/` is gitignored and never built in CI, so nothing here reads it
-directly.
+run at gate tier, offline, with no dependency on the Chroma index's manifest
+file -- that artefact is gitignored and never built in CI, so nothing here
+reads it directly.
 """
 
 from __future__ import annotations
@@ -33,14 +33,14 @@ FIXTURES_DIR = Path(__file__).resolve().parent.parent / "evals" / "fixtures"
 INDEX_MANIFEST_PATH = Path(__file__).resolve().parent.parent / "index" / "manifest.json"
 
 # The corpus's own freshest source, as arXiv-ID-encoded in its filename
-# (`index/manifest.json`'s `sources` map), measured directly against that
+# (the manifest's `sources` map), measured directly against that
 # file on 2026-08-22. A committed constant, not a live read, because
-# `index/` is gitignored and absent in CI (`.github/workflows/gate.yml`'s
+# the manifest is gitignored and absent in CI (`.github/workflows/gate.yml`'s
 # offline job never runs `python ingest.py`) -- the same shape
 # `tests/test_retriever_manifest.py` already uses (a synthetic manifest,
 # never the real one, at gate tier).
 _MEASURED_FRESHEST_CORPUS_SOURCE = "2606.22151v1.pdf"  # Jun 2026 --
-# freshest source in index/manifest.json's `sources` as of 2026-08-22.
+# freshest source in the manifest's `sources` as of 2026-08-22.
 
 _REQUIRED_CATEGORIES = {"happy_path", "edge_case", "failure_case"}
 _REQUIRED_FIELDS = ("id", "category", "input", "expected_output", "rationale")
@@ -53,7 +53,7 @@ def _arxiv_year_month(filename: str) -> tuple[int, int] | None:
 
     Returns ``None`` for a filename that does not follow the convention
     (an ACL Anthology ID, a plain topic name) rather than raising -- most
-    of `index/manifest.json`'s own `sources` keys are not arXiv IDs at
+    of the manifest's own `sources` keys are not arXiv IDs at
     all, and a normal `data/` addition must not break this helper.
     """
     match = _ARXIV_ID_PATTERN.match(filename)
@@ -156,7 +156,7 @@ def test_adversarial_fixture_files_exist_and_are_readable() -> None:
 def test_committed_freshest_source_constant_has_not_gone_stale() -> None:
     """Re-derive the freshest source from the real, locally built index.
 
-    Skipped when `index/manifest.json` does not exist -- true in CI (never
+    Skipped when the manifest file does not exist -- true in CI (never
     built there) and in a fresh clone before `python ingest.py` runs. This
     is the check that "loudly breaks" when `data/` gains a source dated
     after the committed constant above, per the plan's own intent; it

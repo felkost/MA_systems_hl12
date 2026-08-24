@@ -1,37 +1,37 @@
 """The Supervisor: agent-as-tool coordination over Planner, Researcher and
-Critic, with `save_report` gated by a human (`docs/specs/stage-4.md`).
+Critic, with `save_report` gated by a human.
 
-**D4.3 -- every wrapper forwards the original request in code.** `plan`,
+**Every wrapper forwards the original request in code.** `plan`,
 `research` and `critique` all read the first `HumanMessage` out of state and
 render it through `RESEARCH_INPUT_TEMPLATE`, never leaving that to the
-Supervisor's own paraphrase -- CLAUDE.md's invariant, measured in hl8 as a
-coordinator dropping context in five of six paraphrases when this was
-prompt-level instead. `plan` and `critique` return a `Command` carrying both
-a rendered `ToolMessage` and a state write (D4.2); `research` returns its
+Supervisor's own paraphrase -- this project's own invariant, measured in
+hl8 as a coordinator dropping context in five of six paraphrases when this
+was prompt-level instead. `plan` and `critique` return a `Command` carrying
+both a rendered `ToolMessage` and a state write; `research` returns its
 sub-agent's final message content directly, since it carries no state to
 write.
 
-**D4.3 -- a fresh `thread_id` per sub-agent call, not a stripped config.**
+**A fresh `thread_id` per sub-agent call, not a stripped config.**
 Forwarding the ambient `RunnableConfig` verbatim hands each sub-agent the
 Supervisor's own checkpointer; stripping `configurable` does not prevent
 this (measured against the installed langgraph -- an empty `configurable`
 does not trigger `ensure_config`'s ambient-config drop). A fresh
-`configurable={"thread_id": uuid4()}` is what actually keeps D3.6 true at
-runtime.
+`configurable={"thread_id": uuid4()}` is what actually keeps sub-agents
+uncheckpointed at runtime.
 
-**D4.15 -- the middleware order.** `HumanInTheLoopMiddleware` is first in
+**The middleware order.** `HumanInTheLoopMiddleware` is first in
 the list, `agent_middleware(..., tool_exit_behavior="end")` next, then the
-two Supervisor-only middlewares from stage 3, then this stage's revision cap
+two Supervisor-only middlewares, then the revision cap
 and verdict guard. See `middleware.agent_middleware`'s own docstring for why
 `"end"` and this order, both measured rather than assumed.
 
-**hl12 stage 1 -- `prompt_store` is a required keyword-only parameter, not
+**`prompt_store` is a required keyword-only parameter, not
 optional.** All five of this module's prompts (four agent prompts plus the
 Critic's verification retry text) are resolved once here, before
 `create_agent`, through the caller-supplied `PromptStore` -- never built
 implicitly from `Settings`, which would need a real network call or valid
 Langfuse credentials inside every offline gate test that constructs a
-Supervisor (`docs/specs/stage-1.md`, "New audit finding" -- 19 call sites
+Supervisor ("New audit finding" -- 19 call sites
 across `tests/test_supervisor.py`/`tests/test_orchestrator.py`, none of
 which should need network access).
 """
@@ -89,7 +89,8 @@ from schemas import (
 
 
 class SupervisorState(AgentState[None]):
-    """`AgentState` plus what D4.2/D4.5/D4.18 read and write.
+    """`AgentState` plus the revision-loop fields the Supervisor's own
+    middleware and tool wrappers read and write.
 
     No `revision_round` -- that field belongs to `orchestrator.py`'s state
     only. This path counts rounds from `messages`
@@ -106,7 +107,7 @@ class SupervisorState(AgentState[None]):
 def _original_request(messages: Sequence[Any]) -> str:
     """The literal text of the first `HumanMessage` in state.
 
-    CLAUDE.md's code-not-prompt invariant: every wrapper forwards this in
+    This project's code-not-prompt invariant: every wrapper forwards this in
     code, never relies on the Supervisor's own retelling of it.
     """
     for message in messages:
@@ -126,11 +127,10 @@ def _sanitized_sub_agent_config(config: RunnableConfig) -> RunnableConfig:
     spans still nest under the parent run (measured unaffected by the
     checkpointer change below). `configurable` is replaced, not stripped,
     with a fresh `thread_id`: an *empty* `configurable` does not stop
-    langgraph's `ensure_config` from carrying the ambient one forward
-    (`docs/specs/stage-4.md`, D4.3) -- only a config that itself supplies a
-    checkpoint coordinate does, and only a *different* one keeps the
-    Supervisor's checkpointer from being read by the sub-agent's compiled
-    graph (which has none of its own, D3.6).
+    langgraph's `ensure_config` from carrying the ambient one forward --
+    only a config that itself supplies a checkpoint coordinate does, and
+    only a *different* one keeps the Supervisor's checkpointer from being
+    read by the sub-agent's compiled graph (which has none of its own).
     """
     sanitized: RunnableConfig = {"configurable": {"thread_id": str(uuid4())}}
     if config.get("callbacks") is not None:
@@ -256,8 +256,7 @@ def _resolve_prompts(prompt_store: PromptStore, *, label: str) -> dict[str, str]
     """Fetch all five prompts this module needs, once, keyed by role.
 
     `today` is compiled into the Critic's prompt here, not inside
-    `agents/critic.py` (hl12 stage 1) -- the factory no longer owns the
-    system clock.
+    `agents/critic.py` -- the factory no longer owns the system clock.
     """
     return {
         "planner": prompt_store.get(PROMPT_NAMES["planner"], label=label),
@@ -276,12 +275,12 @@ def _resolve_prompts(prompt_store: PromptStore, *, label: str) -> dict[str, str]
 
 def _supervisor_middleware(settings: Settings) -> list[Any]:
     """The Supervisor's own middleware list, factored out of
-    `create_supervisor` so its assembled order (D4.15) is testable without
+    `create_supervisor` so its assembled order is testable without
     a full `create_agent` build.
 
     `HumanInTheLoopMiddleware` first, `agent_middleware(...,
-    tool_exit_behavior="end")` next, then the two stage-3 Supervisor-only
-    middlewares, then this stage's revision cap and verdict guard -- see
+    tool_exit_behavior="end")` next, then the two Supervisor-only
+    middlewares, then the revision cap and verdict guard -- see
     this module's own docstring and `middleware.agent_middleware`'s for why
     this order and why `"end"`, both measured rather than assumed.
     """
@@ -325,29 +324,29 @@ def create_supervisor(
         `"supervisor"` itself -- built by the caller (`main.py`) via
         `models.build_chat_model(settings, role)`. Named `role_models`, not
         `models`, and `base_tools`, not `tools`, so this function's own body
-        can still name the `models`/`tools` modules (D4.19's assembly reads
-        `tools.SUPERVISOR_TOOLS`, which a parameter named `tools` would
-        shadow).
+        can still name the `models`/`tools` modules (this function's own
+        assembly reads `tools.SUPERVISOR_TOOLS`, which a parameter named
+        `tools` would shadow).
     prompt_store : PromptStore
-        Resolves all five prompts this graph needs (hl12 stage 1) -- built
+        Resolves all five prompts this graph needs -- built
         by the caller (`main.py`, via `prompt_store.LangfusePromptStore`),
         a `prompt_store.SnapshotPromptStore` in a test. Required, not
         optional: an implicit default built from `settings` here would need
         real Langfuse credentials inside every offline gate test that
-        constructs a Supervisor (`docs/specs/stage-1.md`).
+        constructs a Supervisor.
     base_tools : Sequence of BaseTool, optional
         The Supervisor's own non-delegation tools. Defaults to
         `tools.SUPERVISOR_TOOLS` (`[save_report]`); overridable so a test
         can inject a fake `save_report` that never touches disk.
     checkpointer : BaseCheckpointSaver, optional
-        Only the Supervisor gets one (D3.6, D4.10 -- typically a
+        Only the Supervisor gets one (typically a
         `MemorySaver`); every sub-agent stays uncheckpointed.
 
     Returns
     -------
     CompiledStateGraph
         `state_schema=SupervisorState`; tools are
-        `[*base_tools, plan, research, critique]` (D4.19), assembled here
+        `[*base_tools, plan, research, critique]`, assembled here
         rather than by extending `tools.SUPERVISOR_TOOLS` itself, which is
         infra and cannot hold application-layer wrappers
         (`tests/test_layering.py`).

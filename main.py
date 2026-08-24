@@ -1,21 +1,21 @@
 """The REPL: streams responses, prints tool calls, drives the interrupt/
-resume loop over either coordination path (`docs/specs/stage-4.md`).
+resume loop over either coordination path.
 
-**D4.6 -- one stable `thread_id` per session**, created once at REPL start
+**One stable `thread_id` per session**, created once at REPL start
 and reused across every turn, so a multi-turn conversation shares
 checkpointed state and the revision-cap middleware's per-question scoping
 (`middleware.py`, `_run_tool_call_ids`) resets correctly on each new
 `HumanMessage`.
 
-**D4.6 -- the resume payload is a list, not a bare decision.** An interrupt
+**The resume payload is a list, not a bare decision.** An interrupt
 can gate more than one tool call in one turn
 (`HITLRequest["action_requests"]`), so `Command(resume=...)` always carries
 `{"decisions": [...]}`, one entry per action request, via
 `hitl.resolve_interrupt`.
 
-**D4.11 -- headless decisions.** `--headless` supplies `approve` for every
+**Headless decisions.** `--headless` supplies `approve` for every
 gated call through the *same* `HumanInTheLoopMiddleware`/manual-`interrupt`
-contract, never by disabling the gate. This exists because stage 8/9's
+contract, never by disabling the gate. This exists because
 evaluation runs 15 cases, each stopping at the same interrupt, and
 `evals/runner.py` is obs-layer and may not import `supervisor`
 (`tests/test_layering.py`) -- nothing else could drive an unattended run.
@@ -94,7 +94,7 @@ def build_prompt_store(
     settings: Settings, *, client: Langfuse | None = None
 ) -> PromptStore:
     """The real `PromptStore` `main.py` uses: Langfuse Cloud, with the local
-    snapshot as `fallback=` (hl12 stage 1).
+    snapshot as `fallback=`.
 
     Parameters
     ----------
@@ -102,8 +102,8 @@ def build_prompt_store(
     client : Langfuse, optional
         Reused as-is when given -- `main()` passes
         `handle.langfuse_client`, the one `Langfuse` client
-        `configure_observability` already built (D2.1, `docs/specs/stage-2.md`,
-        section 1). A second `Langfuse(public_key=...)` call with the same
+        `configure_observability` already built. A second
+        `Langfuse(public_key=...)` call with the same
         key returns the SDK's own cached singleton and silently discards
         whatever `tracer_provider=`/`should_export_span=` the first call
         set, so prompt fetching must never construct its own client when
@@ -142,7 +142,7 @@ def build_prompt_store(
 
 
 def auto_approve_decisions(request: HITLRequest) -> HITLResponse:
-    """D4.11's headless resolver: `approve` for every gated action request,
+    """The headless resolver: `approve` for every gated action request,
     through the real decision contract."""
     return HITLResponse(
         decisions=[{"type": "approve"} for _ in request["action_requests"]]
@@ -171,7 +171,7 @@ def _print_update(chunk: dict[str, Any], write: Callable[[str], None]) -> str | 
         The `content` of this chunk's `AIMessage`, if it carried one (the
         same text just printed) -- `None` otherwise. `_drive_turn` uses this
         to track the turn's final answer without duplicating the message
-        filtering above (D2.4, `docs/specs/stage-2.md`, section 3).
+        filtering above.
     """
     answer: str | None = None
     for node, update in chunk.items():
@@ -211,7 +211,7 @@ def _drive_turn(
         an interrupt -- the model's final answer to the user's question, not
         a concatenation of every intermediate agent's chatter or tool-call
         announcement, since each node's terminal `AIMessage` overwrites it in
-        turn-order. `set_trace_io` has no other source for this text (D2.4).
+        turn-order. `set_trace_io` has no other source for this text.
     """
     answer = ""
     while True:
@@ -252,7 +252,7 @@ def run_session(
         Built by `build_role_models`; injectable so a test can pass fakes.
     prompt_store : PromptStore
         Built by `build_prompt_store`; injectable so a test can pass
-        `prompt_store.SnapshotPromptStore` instead (hl12 stage 1).
+        `prompt_store.SnapshotPromptStore` instead.
     checkpointer : BaseCheckpointSaver, optional
         Typically a fresh `MemorySaver()` per session.
     read_question : Callable[[], str | None]
@@ -262,16 +262,15 @@ def run_session(
     write : Callable[[str], None]
         `print` in the real REPL.
     resolve_decisions : Callable[[HITLRequest], HITLResponse]
-        `interactive_decisions(...)` or `auto_approve_decisions` (D4.11).
+        `interactive_decisions(...)` or `auto_approve_decisions`.
     thread_id : str, optional
         Defaults to a fresh `uuid4()` -- the one stable id reused across
-        every turn in this session (D4.6).
+        every turn in this session.
     session_id : str, optional
         Defaults to a fresh `uuid4()` -- bound once here, outside the
         per-turn loop, and reused by every turn's `run_context` call. This
         is what makes 3-5 turns in one session group into one Langfuse
-        session (requirement R2), not 3-5 separate one-trace sessions
-        (D2.5, `docs/specs/stage-2.md`, section 3).
+        session (requirement R2), not 3-5 separate one-trace sessions.
     user_id : str, optional
         Defaults to `settings.default_user_id`.
 
@@ -300,8 +299,8 @@ def run_session(
         if question is None:
             return tid
         payload: Any = {"messages": [HumanMessage(content=question)]}
-        # D5.7: run_id is fresh per turn, not the session's thread_id --
-        # "one question = one trace" (docs/specs/stage-5.md).
+        # run_id is fresh per turn, not the session's thread_id --
+        # "one question = one trace".
         run_id = str(uuid4())
         with observability.run_context(session_id=sid, user_id=uid, run_id=run_id):
             with trace.get_tracer(__name__).start_as_current_span(
@@ -342,7 +341,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
         action="store_true",
         help=(
             "Auto-approve every HITL gate through the real decision "
-            "contract (D4.11) -- for unattended evaluation runs, never "
+            "contract -- for unattended evaluation runs, never "
             "the default."
         ),
     )
@@ -377,7 +376,7 @@ def main(argv: Sequence[str] = ()) -> None:
         else interactive_decisions(read=input, write=print)
     )
 
-    # Built first (D2.1, docs/specs/stage-2.md, section 1): main.py (interface)
+    # Built first: main.py (interface)
     # is the only module that imports observability.py, and build_prompt_store
     # below reuses the one Langfuse client this call builds instead of
     # constructing a second one -- a second Langfuse(public_key=...) call with

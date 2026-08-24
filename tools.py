@@ -8,18 +8,18 @@ later: `save_report` confines a model-supplied filename to `output/`, and
 `read_url` confines a model-supplied URL to public http/https and re-checks
 every redirect hop. Both refusals are a typed exception the tool converts to
 an ``ERROR:`` string, so a span can later distinguish "guardrail tripped"
-from "the disk was full" (`docs/specs/stage-2.md`).
+from "the disk was full".
 
 Tool docstrings are read by the model: LangChain sends the whole docstring as
 the tool description. They therefore stay short and say when to use the
 tool, instead of following the numpydoc layout used in the rest of the code.
 
 The four named lists at the bottom are the single source of truth for what
-each agent can call; the corresponding agent factory (stage 3) builds its
+each agent can call; the corresponding agent factory builds its
 tool list from here, and every name must also appear in that agent's system
 prompt, or the model never learns that the tool exists. Ported from hl8's
-`tools.py`, minus `graph_search`: this project carries no graph store
-(CLAUDE.md, "Three deliberate removals").
+`tools.py`, minus `graph_search`: this project carries no graph store, by
+design.
 """
 
 from __future__ import annotations
@@ -84,11 +84,10 @@ def _unwrap_untrusted_content(text: str) -> str:
     """Strip `wrap_untrusted_content`'s markers, recovering the page text
     alone.
 
-    Used only to build the `retrieval.chunks` span attribute (stage 9e,
-    D9e.7's third lever) -- the model itself always sees the wrapped form;
-    this function exists so `read_url` can record what it fetched
-    symmetrically with `knowledge_search`, whose chunks carry no such
-    wrapper to begin with.
+    Used only to build the `retrieval.chunks` span attribute -- the model
+    itself always sees the wrapped form; this function exists so `read_url`
+    can record what it fetched symmetrically with `knowledge_search`, whose
+    chunks carry no such wrapper to begin with.
     """
     if text.startswith(UNTRUSTED_PREAMBLE) and text.endswith(UNTRUSTED_POSTAMBLE):
         return text[len(UNTRUSTED_PREAMBLE) : -len(UNTRUSTED_POSTAMBLE)]
@@ -259,7 +258,7 @@ def _search_with_retry(query: str, *, max_results: int) -> list[dict[str, Any]] 
     is not an exception, so the middleware's `retry_on=(Exception,)` never
     sees it and every rate-limit was one attempt and done. Measured across
     two live evaluation runs before this was added -- 9 of 15 end-to-end
-    runs hit the unavailable-string in the stage-9a baseline alone.
+    runs hit the unavailable-string in an earlier baseline run alone.
     """
     delay = _SEARCH_RETRY_INITIAL_DELAY_SECONDS
     for attempt in range(_SEARCH_ATTEMPTS):
@@ -292,7 +291,7 @@ def read_url(url: str) -> str:
             allow_private=settings.allow_private_network_urls,
         )
 
-    # Stage 9e, D9e.7's third lever: writes `retrieval.chunks` symmetrically
+    # Writes `retrieval.chunks` symmetrically
     # with `knowledge_search` (`_format_passages` above), so a page a real
     # tool actually fetched counts as grounding for the Groundedness and
     # Citation Presence metrics -- guarded on the `ERROR:` prefix, since a
@@ -466,7 +465,7 @@ def save_report(filename: str, content: str) -> str:
 # Each agent gets exactly the tools its architecture row prescribes. The
 # Planner needs breadth, not a deep-read tool. SUPERVISOR_TOOLS covers only
 # the tool this module defines for the Supervisor -- `supervisor.py`
-# (stage 4) extends it with the `plan`/`research`/`critique` agent-as-tool
+# extends it with the `plan`/`research`/`critique` agent-as-tool
 # wrappers once those exist.
 PLANNER_TOOLS: list[BaseTool] = [web_search, knowledge_search]
 RESEARCHER_TOOLS: list[BaseTool] = [web_search, read_url, knowledge_search]

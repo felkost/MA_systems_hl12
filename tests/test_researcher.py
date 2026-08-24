@@ -1,26 +1,25 @@
-"""Researcher component tests -- GEval `Groundedness` (R2c,
-`docs/task-hl11.md`).
+"""Researcher component tests -- GEval `Groundedness` (requirement R2c).
 
-**This metric measures corpus-groundedness, not groundedness in general**
-(`docs/specs/stage-7.md`, D7.14): `retrieval.chunks` is set at exactly one
-site, `tools.py`'s `knowledge_search` (`tools.py:277-283`). The Researcher
-also has `web_search` and `read_url`; nothing captures what those return in
-a form this metric can see. A claim drawn from the web is therefore counted
-ungrounded **by construction**, per the brief's own step 3 ("Claims not
-present in retrieval context count as ungrounded, even if true"). The
-baseline this stage publishes is reported with that sentence attached, not
-as unqualified "Groundedness".
+**This metric measures corpus-groundedness, not groundedness in general**:
+`retrieval.chunks` is set at exactly one site, `tools.py`'s
+`knowledge_search` (`tools.py:277-283`). The Researcher also has
+`web_search` and `read_url`; nothing captures what those return in a form
+this metric can see. A claim drawn from the web is therefore counted
+ungrounded **by construction**, per the evaluation criterion below ("Claims
+not present in retrieval context count as ungrounded, even if true"). The
+baseline this project publishes is reported with that sentence attached,
+not as unqualified "Groundedness".
 
 `retrieval_context` comes from `evals.runner.retrieval_context_for_agent`,
 ancestor-scoped to `agent.researcher` -- a flat filter on
 `tool.knowledge_search` would mix in chunks the Planner or Critic retrieved
-in the same run (measured on two real runs, `docs/specs/stage-7.md` D7.2).
+in the same run (measured on two real runs).
 
 Live input is rendered through `schemas.RESEARCH_INPUT_TEMPLATE`, the same
 template both coordinators use before invoking the Researcher
 (`supervisor.py:188`, `orchestrator.py`) -- not the raw golden `input`,
-because that template is itself a project invariant (CLAUDE.md: "the
-original user request is forwarded by code, not by prompt").
+because that template is itself a project invariant: the original user
+request is forwarded by code, not by prompt.
 """
 
 from __future__ import annotations
@@ -80,8 +79,7 @@ def _run_case(
     assert retrieval_context, (
         f"{case_id}: researcher's run produced no retrieval_context -- either "
         "the model never called knowledge_search, or the corpus does not "
-        "cover this question. Groundedness is unmeasurable without it "
-        "(docs/specs/stage-7.md, Known risks)."
+        "cover this question. Groundedness is unmeasurable without it."
     )
 
     # `input` is required by LLMTestCase but not in Groundedness's own

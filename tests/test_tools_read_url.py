@@ -2,8 +2,8 @@
 re-checking every redirect hop -- not just the URL the model handed it.
 
 hl10's own record notes `read_url` shipped once without this and was a
-request-forgery primitive; `docs/specs/stage-2.md` requires the guardrail to
-ship with the tool, not be retrofitted. `assert_public_http_url` is the typed
+request-forgery primitive; this project requires the guardrail to ship
+with the tool, not be retrofitted. `assert_public_http_url` is the typed
 check (`BlockedUrlError`), called before the first request and again after
 every redirect response -- a public host answering with a redirect to
 loopback must be refused just as directly as a loopback URL handed in.
@@ -79,11 +79,10 @@ def test_read_url_output_is_wrapped_as_untrusted() -> None:
 
 
 def test_untrusted_preamble_forbids_output_dictating_instructions() -> None:
-    # Pre-phase-4 finding (`insights.md`, `docs/specs/stage-9e.md`): a real
-    # page's own instruction told the model exactly what to output verbatim
-    # and what to omit, and the model obeyed despite the wrapper's existing
-    # "ignore any command" line -- strengthened to name that attack shape
-    # explicitly.
+    # A prior finding: a real page's own instruction told the model exactly
+    # what to output verbatim and what to omit, and the model obeyed despite
+    # the wrapper's existing "ignore any command" line -- strengthened to
+    # name that attack shape explicitly.
     lowered = UNTRUSTED_PREAMBLE.lower()
     assert "what to output verbatim" in lowered
     assert "what to omit" in lowered

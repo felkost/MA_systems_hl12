@@ -3,13 +3,10 @@
 # project's lockfile, which resolved on a different day against a different
 # index.
 #
-# Versions land here at stage 2, when the first module that needs them is
-# written. Stage 0 deliberately installed nothing from this file: the kickoff
-# gate must be green on a repository with no application code, and a
-# dependency with no importer is noise.
+# Versions land here only once the module that needs them is written; a
+# dependency with no importer is noise, so nothing is added speculatively.
 
-# Agents (stage 3+; langchain-openai is already needed by models.py at
-# stage 2)
+# Agents (langchain-openai is also needed by models.py)
 langchain==1.3.16
 langchain-core==1.6.0
 langchain-openai==1.6.0
@@ -18,19 +15,18 @@ langgraph==1.2.11
 pydantic==2.13.4
 pydantic-settings==2.15.0
 
-# Observability (stage 5). Langfuse Cloud only -- this project has no
+# Observability. Langfuse Cloud only -- this project has no
 # docker-compose.yml and no self-hosted Langfuse; the v3 stack needs roughly
 # 5.5 GB of container memory and this machine has 7.9 GB in total.
 # opentelemetry-exporter-otlp-proto-http, not the opentelemetry-exporter-otlp
 # meta-package (which also bundles a gRPC exporter this project never uses):
-# this is the one langfuse itself depends on and the one actually resolved
-# (docs/specs/stage-5.md, "requirements.txt change").
+# this is the one langfuse itself depends on and the one actually resolved.
 langfuse==4.14.4
 opentelemetry-sdk==1.44.0
 opentelemetry-exporter-otlp-proto-http==1.44.0
 opentelemetry-instrumentation-httpx==0.65b0
 
-# Retrieval. ChromaDB only: no graph store, by design (see CLAUDE.md).
+# Retrieval. ChromaDB only: no graph store, by design.
 # Embeddings go through OpenRouter (langchain-openai, above); the cross
 # encoder reranker is the one local Hugging Face model left.
 chromadb==1.5.9

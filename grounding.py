@@ -1,15 +1,16 @@
 """Fabrication-candidate extraction and a run-scoped grounding nudge for the
-Researcher (stage 9e, D9e.7a/D9e.7b, `docs/specs/stage-9e.md`).
+Researcher.
 
-**D9e.7a -- the extractor requires a digit or an all-caps token.** A v1
+**The extractor requires a digit or an all-caps token.** A v1
 heuristic (any title-case token run) was measured against every real report
-in the 9d run: 15-74 candidates per case, no separation between passing and
-failing cases, dominated by model-authored markdown headings. Requiring a
-digit or an all-caps token cuts that to a class fabricated version strings
-and model names actually belong to (`AG2`, `v0.4`, `MemGPT-2` in; `OpenAI`
-alone out) -- ordinary Title Case prose no longer qualifies on its own.
+in an earlier baseline run: 15-74 candidates per case, no separation between
+passing and failing cases, dominated by model-authored markdown headings.
+Requiring a digit or an all-caps token cuts that to a class fabricated
+version strings and model names actually belong to (`AG2`, `v0.4`,
+`MemGPT-2` in; `OpenAI` alone out) -- ordinary Title Case prose no longer
+qualifies on its own.
 
-**D9e.7b -- a run-scoped nudge counter, not a per-model-call one.** A nudge
+**A run-scoped nudge counter, not a per-model-call one.** A nudge
 issued from `wrap_model_call` cannot be persisted in `request.messages` (the
 overridden request is never stored, only the response `AIMessage` is), so
 "no marker at all" would nudge on every model call up to
@@ -146,7 +147,7 @@ def _run_qualifies(run: str) -> bool:
 
 
 def extract_candidates(text: str) -> list[str]:
-    """Candidate fabricated entities in `text` (D9e.7a).
+    """Candidate fabricated entities in `text`.
 
     Fenced code blocks and markdown headings are skipped entirely; inline
     code spans are unwrapped rather than skipped, since a model puts
@@ -231,7 +232,7 @@ class UnsupportedClaimMiddleware(
     AgentMiddleware[GroundingState[ResponseT], ContextT, ResponseT]
 ):
     """Nudges the Researcher to verify or drop a claim its own draft names
-    but no tool result this run actually supports (D9e.7b).
+    but no tool result this run actually supports.
 
     Fires only when the response carries no tool calls (a draft, not a
     search) and `extract_candidates` finds at least one candidate absent
@@ -240,15 +241,15 @@ class UnsupportedClaimMiddleware(
     total for the run -- `tool_choice="any"` is deliberately not set, since
     the nudge asks for a redraft, not a tool call.
 
-    Defines **both** `wrap_model_call` and `awrap_model_call` (D3.1b).
+    Defines **both** `wrap_model_call` and `awrap_model_call`.
 
     `role`, default `"researcher"` -- the only role this middleware is ever
     attached to (`orchestrator.py`/`supervisor.py`'s `research_graph`),
     passed to `middleware.record_superseded_model_call` so a grounding
     nudge's discarded first response still gets its own `model.<role>` span
-    (stage 9e, phase 3 R.2 finding, found while verifying this middleware's
-    own retry: `TracingMiddleware`'s own span otherwise sees only the
-    redrafted response).
+    (found while verifying this middleware's own retry:
+    `TracingMiddleware`'s own span otherwise sees only the redrafted
+    response).
     """
 
     state_schema = GroundingState  # type: ignore[assignment]

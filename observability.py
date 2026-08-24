@@ -1,18 +1,17 @@
 """Owns the process's one `TracerProvider`, the offline span dump, rotating
-file logs, and cost computed from token counts (stage 5,
-`docs/specs/stage-5.md`).
+file logs, and cost computed from token counts.
 
 **One provider, two processors.** `configure_observability` builds exactly
 one `TracerProvider` and attaches `LangfuseSpanProcessor` (via
 `Langfuse(tracer_provider=...)`, only when `settings.tracing_enabled`) and a
-project-owned `SpanJsonExporter` on a `SimpleSpanProcessor` (D5.4). The
+project-owned `SpanJsonExporter` on a `SimpleSpanProcessor`. The
 offline dump is deliberately **not** a `BatchSpanProcessor`: it writes each
 span synchronously as it ends, so a hard crash never loses its tail --
 Langfuse export staying batched (and therefore losing an unflushed tail on a
 crash) is accepted, since it is best-effort UI-quality tracing, never the
 evaluation pipeline's data source.
 
-**`run_id` is not a constructor argument (D5.7, corrected mid-spec-review).**
+**`run_id` is not a constructor argument (corrected mid-design-review).**
 The first draft took `run_id` at `configure_observability()` call time, which
 cannot work: the provider is built once per process, while `run_id` is fresh
 per REPL turn. Instead, `run_id` rides OpenTelemetry's own `Baggage` --
@@ -28,8 +27,8 @@ turn's value, no cross-contamination.
 **Only `main.py` (interface) imports this module.** Every other layer
 reaches OpenTelemetry's own ambient global tracer directly
 (`opentelemetry.trace.get_tracer(__name__)`), a third-party import invisible
-to `tests/test_layering.py`'s AST walk over project-local module names
-(D5.3) -- this module never crosses the `application`/`infra` boundary that
+to `tests/test_layering.py`'s AST walk over project-local module names --
+this module never crosses the `application`/`infra` boundary that
 would otherwise forbid importing an `obs`-layer module from there.
 """
 
@@ -76,7 +75,7 @@ class ObservabilityHandle:
 
     def shutdown(self) -> None:
         """Flush every registered `SpanProcessor`, including the batched
-        Langfuse one, before the process exits (D5.11)."""
+        Langfuse one, before the process exits."""
         self.tracer_provider.shutdown()
 
 
@@ -95,14 +94,14 @@ def configure_observability(settings: Settings) -> ObservabilityHandle:
         `False`) so a caller does not construct a second one -- a second
         `Langfuse(public_key=...)` call with the same key returns the SDK's
         own cached singleton and silently discards `tracer_provider=`/
-        `should_export_span=` (D2.1, `docs/specs/stage-2.md`, section 1).
+        `should_export_span=`.
 
     Raises
     ------
     RuntimeError
         On a second call in the same process. OpenTelemetry's own
         `set_tracer_provider` silently no-ops on a second call rather than
-        raising (measured live, D5.13) -- this project enforces what the
+        raising (measured live) -- this project enforces what the
         SDK does not, so a caller bug (e.g. `main()` re-entered) is loud
         rather than silently inert.
     """
@@ -118,7 +117,7 @@ def configure_observability(settings: Settings) -> ObservabilityHandle:
     trace.set_tracer_provider(provider)
 
     # First, so every later processor sees run_id/session.id/user.id already
-    # stamped (D5.7, extended by D2.5 to session/user).
+    # stamped.
     provider.add_span_processor(RunContextStampingProcessor())
 
     runs_dir = settings.span_dump_dir or "runs"
@@ -135,7 +134,7 @@ def configure_observability(settings: Settings) -> ObservabilityHandle:
             secret_key=settings.langfuse_secret_key.get_secret_value(),
             host=settings.langfuse_base_url,
             tracer_provider=provider,
-            # Confirmed live this session, not in the SDK-measurements table
+            # Confirmed live, not in the SDK-measurements table
             # above: LangfuseSpanProcessor's DEFAULT should_export_span
             # (langfuse._client.span_filter.is_default_export_span) drops
             # any span with no gen_ai.*-prefixed attribute, unless it also
@@ -147,13 +146,12 @@ def configure_observability(settings: Settings) -> ObservabilityHandle:
             # for a different underlying reason (a default filter, not a
             # LangChain-integration-only publisher). This override only
             # actually takes effect because `main.py` never builds a second
-            # `Langfuse(public_key=...)` client with the same key (D2.1) --
+            # `Langfuse(public_key=...)` client with the same key --
             # `LangfuseResourceManager` is a singleton keyed by public_key,
             # and a second construction silently discards this keyword,
-            # the exact defect stage 2 diagnosed and fixed
-            # (`docs/specs/stage-2.md`, section 1). Nothing else is attached
-            # to this provider (D5.3), so accepting every span it ever sees
-            # is safe.
+            # the exact defect this project diagnosed and fixed. Nothing
+            # else is attached to this provider, so accepting every span
+            # it ever sees is safe.
             should_export_span=lambda span: True,
         )
 
@@ -166,7 +164,7 @@ def configure_observability(settings: Settings) -> ObservabilityHandle:
 
 @contextmanager
 def run_context(*, session_id: str, user_id: str, run_id: str) -> Iterator[None]:
-    """Scope one REPL turn's `session.id`/`user.id`/`run_id` (D2.5).
+    """Scope one REPL turn's `session.id`/`user.id`/`run_id`.
 
     Attaches `session_id`/`user_id`/`run_id` as OTel `Baggage`, which
     `RunContextStampingProcessor` copies onto every span opened afterwards
@@ -179,8 +177,7 @@ def run_context(*, session_id: str, user_id: str, run_id: str) -> Iterator[None]
     measured, not assumed) and only runs when `tracing_enabled=True` builds
     one -- relying on it alone would leave every nested `agent.*`/`tool.*`
     span in the offline dump without `session.id`/`user.id` whenever tracing
-    is off, the project's own default (`docs/specs/stage-2.md`, section 1,
-    the finding behind D2.5).
+    is off, the project's own default.
 
     `propagate_attributes` is still entered here too, for the SDK's own
     recommended usage and whatever internal Langfuse-side features key off
@@ -196,7 +193,7 @@ def run_context(*, session_id: str, user_id: str, run_id: str) -> Iterator[None]
         3-5 separate one-trace sessions.
     user_id : str
     run_id : str
-        Fresh per turn (D5.7).
+        Fresh per turn.
     """
     ctx = baggage.set_baggage("run_id", run_id)
     ctx = baggage.set_baggage("session_id", session_id, context=ctx)
@@ -210,7 +207,7 @@ def run_context(*, session_id: str, user_id: str, run_id: str) -> Iterator[None]
 
 
 def set_trace_io(*, input: str, output: str) -> None:
-    """Stamp input/output on the current span, at both scopes (D2.4, D4.6).
+    """Stamp input/output on the current span, at both scopes.
 
     Sets `LangfuseOtelSpanAttributes.TRACE_INPUT`/`TRACE_OUTPUT` directly on
     `trace.get_current_span()` -- the same low-level mechanism
@@ -228,8 +225,8 @@ def set_trace_io(*, input: str, output: str) -> None:
     LLM-as-a-judge evaluation rule reads `{{input}}`/`{{output}}` from the
     *observation* it is bound to -- `EvaluationRuleTarget` offers only
     `OBSERVATION` and `EXPERIMENT`, with no `TRACE` member to bind to.
-    Writing only the trace pair is what made all sixteen scores of the
-    stage-4 live run judge an empty string (`docs/reports/stage-4.md`); one
+    Writing only the trace pair is what made all sixteen scores of an
+    earlier live run judge an empty string; one
     judge returned 1.0 on that emptiness and invented a report to justify
     the score.
     """
@@ -244,7 +241,7 @@ class RunContextStampingProcessor(SpanProcessor):
     """Copies the ambient `Baggage` `run_id`/`session_id`/`user_id` values
     onto every span's own attributes at creation time -- registered first in
     the provider's processor list so both the Langfuse and offline-dump
-    processors see them already set (D5.7, extended by D2.5). A future edit
+    processors see them already set. A future edit
     that reorders `add_span_processor` calls ahead of this one silently
     loses `run_id` on every span; pinned by a declared test constructing the
     provider with processors added out of order.
@@ -255,7 +252,7 @@ class RunContextStampingProcessor(SpanProcessor):
     and only runs when a real Langfuse client is attached
     (`settings.tracing_enabled`) -- this class instead makes `session.id`/
     `user.id` present on every span in the offline dump too, the project's
-    own default posture (`docs/specs/stage-2.md`, section 1)."""
+    own default posture."""
 
     def on_start(self, span: Any, parent_context: Any = None) -> None:
         run_id = baggage.get_baggage("run_id", parent_context)
@@ -279,10 +276,10 @@ class RunContextStampingProcessor(SpanProcessor):
 
 
 class SpanJsonExporter(SpanExporter):
-    """Writes each ended span into `runs/<run_id>/spans.json`, keyed by the
-    span's own `run_id` attribute (stamped by `RunContextStampingProcessor`) --
-    one long-lived exporter for the whole process, never bound to a single
-    fixed run at construction (D5.7, corrected).
+    """Writes each ended span into the offline span dump for its run, keyed
+    by the span's own `run_id` attribute (stamped by
+    `RunContextStampingProcessor`) -- one long-lived exporter for the whole
+    process, never bound to a single fixed run at construction.
 
     `SimpleSpanProcessor.on_end` calls `export()` once per single span
     (measured: `opentelemetry-sdk`'s `SimpleSpanProcessor` is synchronous,
@@ -374,7 +371,7 @@ def configure_file_logging(
     logger.setLevel(logging.INFO)
     # `logger` is the same named object across every call in this process
     # (Python's logging module keys loggers by name globally) -- since
-    # `configure_observability` now calls this on every invocation (D2.3),
+    # `configure_observability` now calls this on every invocation,
     # a fresh call must not pile a new handler onto whatever a previous
     # invocation (a previous test, in the gate) already attached.
     logger.handlers.clear()

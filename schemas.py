@@ -7,11 +7,10 @@ the assignment, not designed from scratch -- `sources_to_check` stays
 model to answer "both", which a `Literal["knowledge_base", "web"]` would
 reject.
 
-`in_scope` is ported from `MA_systems_hl10`, not the original hl8 shape
-(`docs/specs/stage-3.md`, D3.3): a research assistant that only ever
-produces a plan needs a way to refuse a request that has nothing to
-research, and stage 6's golden dataset already commits to measuring that
-refusal as a `failure_case`.
+`in_scope` is ported from `MA_systems_hl10`, not the original hl8 shape: a
+research assistant that only ever produces a plan needs a way to refuse a
+request that has nothing to research, and the golden dataset already
+commits to measuring that refusal as a `failure_case`.
 """
 
 from __future__ import annotations
@@ -112,7 +111,7 @@ class CritiqueResult(BaseModel):
 
 class ReportDraft(BaseModel):
     """A report ready to hand to `save_report`. Ported from hl8 -- absent
-    from hl10's `schemas.py` (`docs/specs/stage-3.md`, plan-audit table)."""
+    from hl10's `schemas.py`."""
 
     filename: str = Field(description="Name for the saved report file")
     content: str = Field(description="Markdown content of the report")

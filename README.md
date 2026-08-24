@@ -13,17 +13,16 @@ This repository solves homework-lesson-12. The system itself is ported from
 engineering weight here sits in `prompt_store.py`, `observability.py` and
 `evals/`.
 
-> **Status: stage 4 (LLM-as-a-Judge evaluators) complete, live-verified.**
-> Prompt management (stage 1), tracing with session/user grouping (stage
-> 2), an idempotent golden-dataset sync into Langfuse Datasets (stage 3),
-> and four online evaluators (numeric/boolean/categorical score types)
-> automatically scoring new traces (stage 4) are done — all five
-> `docs/task-hl12.md` requirements are closed. Stage 4's live verification
-> found and fixed two real defects (an empty-string scoring bug from a
-> missing Langfuse observation-scope attribute, and two judges
-> false-positiving on the system's own legitimate report-saving step)
-> before closing. Stage 5 (project close-out: remaining screenshots, final
-> report) is next. See `CONTRIBUTING.md` for the stage sequence, and the
+> **Status: LLM-as-a-Judge evaluators complete, live-verified.** Prompt
+> management via Langfuse, tracing with session/user grouping, an
+> idempotent golden-dataset sync into Langfuse Datasets, and four online
+> evaluators (numeric/boolean/categorical score types) automatically
+> scoring new traces are done — all five assignment requirements are
+> closed. Live verification of the evaluators found and fixed two real
+> defects (an empty-string scoring bug from a missing Langfuse
+> observation-scope attribute, and two judges false-positiving on the
+> system's own legitimate report-saving step) before closing. Project
+> close-out (remaining screenshots, final report) is next. See the
 > repository's own commit history for what has actually landed.
 
 ## Setup
@@ -51,8 +50,7 @@ Every agent's system prompt is fetched from Langfuse Prompt Management by
 name and the `production` label — none is hardcoded in this repository. Six
 prompts must exist in the Langfuse project referenced above before the system
 can run: `hl12-planner`, `hl12-researcher`, `hl12-critic`, `hl12-supervisor`,
-`hl12-composer`, `hl12-critic-verification`. See `CLAUDE.md`'s architecture
-table for what `prompt_store.py` expects from each.
+`hl12-composer`, `hl12-critic-verification`.
 
 ## Run
 
@@ -92,8 +90,8 @@ trusts stops catching real breakage.
 ## Layout
 
 Flat module layout: every filename stays where it was placed, and layering is
-a property assigned per file in `CLAUDE.md`'s architecture table, enforced by
-`tests/test_layering.py`. `data/` holds the source corpus; `output/` holds
+a property assigned per file, enforced by `tests/test_layering.py`.
+`data/` holds the source corpus; `output/` holds
 approved reports; `screenshots/` holds the four Langfuse UI screenshots this
 assignment delivers.
 

@@ -1,18 +1,15 @@
-"""One system run -> a validated span record list (stage 5 slice, D5.1;
-extended stage 7, D7.1).
+"""One system run -> a validated span record list.
 
-`load_run` reads and schema-validates `runs/<run_id>/spans.json` -- the
-stage-5/stage-8 contract this project's `docs/specs/stage-5.md` splits:
-this module ships the schema and the reader at stage 5. `retrieval_context`
-extraction shipped early, at stage 7 (`retrieval_context_for_agent`,
-`docs/specs/stage-7.md` D7.1), because R2c (Groundedness) needs it a stage
-before `build_llm_test_case` was originally due -- the plan's own audit A4
-names this as a hard prerequisite, not a nice-to-have. `tools_called`
-extraction and the full `build_llm_test_case` (turning a `RunSpans` into a
-complete DeepEval `LLMTestCase`, including `tools_called` from `tool.<name>`
-spans' `tool.args`) still ship at stage 8, against this schema -- not
-designed here, per the rolling-wave rule that only the stage actually
-needing a piece of design commits to its exact shape.
+`load_run` reads and schema-validates `runs/<run_id>/spans.json`; this
+module ships that schema together with the reader. `retrieval_context`
+extraction (`retrieval_context_for_agent`) was designed ahead of the rest of
+`build_llm_test_case`, because the Groundedness metric needs it as a hard
+prerequisite, not a nice-to-have. `tools_called` extraction and the full
+`build_llm_test_case` (turning a `RunSpans` into a complete DeepEval
+`LLMTestCase`, including `tools_called` from `tool.<name>` spans'
+`tool.args`) are designed against this same schema, per the rolling-wave
+rule that only the piece of work actually needing a design commits to its
+exact shape.
 
 A malformed dump raises immediately rather than returning a partial
 result: an evaluation stage reading spans that don't match this schema is a
@@ -33,10 +30,9 @@ import paths
 from middleware import was_truncated_for_span
 
 _TOOL_SPAN_PREFIX = "tool."
-# Stage 9e, D9e.7's third lever: `read_url` now writes `retrieval.chunks`
-# symmetrically with `knowledge_search` (`tools.py`), so both span names
-# count as retrieval here. `web_search` stays excluded on purpose -- a
-# search snippet is not a retrieved document.
+# `read_url` writes `retrieval.chunks` symmetrically with `knowledge_search`
+# (`tools.py`), so both span names count as retrieval here. `web_search`
+# stays excluded on purpose -- a search snippet is not a retrieved document.
 _RETRIEVAL_SPAN_NAMES = frozenset({"tool.knowledge_search", "tool.read_url"})
 
 _REQUIRED_SPAN_FIELDS = (
@@ -142,9 +138,9 @@ def retrieval_context_for_agent(
     `knowledge_search` is on the Planner's, Researcher's and Critic's tool
     allowlist alike, so a flat filter on `tool.knowledge_search` mixes
     chunks none of them actually saw as their own retrieval context --
-    measured on two real runs (`docs/specs/stage-7.md`, D7.2): one where a
-    `knowledge_search` call belongs to `agent.planner` alongside the
-    Researcher's own, another where a third belongs to `agent.critic`.
+    measured on two real runs: one where a `knowledge_search` call belongs
+    to `agent.planner` alongside the Researcher's own, another where a
+    third belongs to `agent.critic`.
 
     Walks each `tool.knowledge_search`/`tool.read_url` span's
     `parent_span_id` chain and keeps it only if `agent_span_name` appears
@@ -232,8 +228,8 @@ def tools_called_for_agent(
         # routinely runs past that cap, so valid JSON arrives with its tail
         # removed. The arguments are simply unrecoverable then -- which is
         # different from a value that was never JSON at all, and only the
-        # second is a defect worth raising on. Measured the hard way: the
-        # first stage-8 live run raised here on a real, healthy run.
+        # second is a defect worth raising on. Measured the hard way: an
+        # early live run raised here on a real, healthy run.
         if raw_args is not None and not was_truncated_for_span(str(raw_args)):
             try:
                 parsed = json.loads(raw_args)
@@ -255,11 +251,10 @@ def tools_called_for_agent(
 def total_agent_cost(run: RunSpans) -> float:
     """Sum `gen_ai.usage.cost_usd` across every span in one run.
 
-    Stage 9a's own measured-cost obligation (`docs/specs/stage-9a.md` D9a.8):
-    the same attribute stage 7/8 already read by hand when reporting cost,
-    made reusable. A span with no such attribute (a tool span, not a model
-    call) contributes `0.0`, never an error -- only a subset of spans ever
-    carry it.
+    Makes reusable what was previously read by hand off individual spans
+    when reporting cost. A span with no such attribute (a tool span, not a
+    model call) contributes `0.0`, never an error -- only a subset of spans
+    ever carry it.
 
     Parameters
     ----------
@@ -307,7 +302,7 @@ def build_llm_test_case(
     name : str, optional
         Carried into DeepEval's own persisted run file, which is otherwise
         the only record of which test produced a case and has no source-file
-        field of its own (`evals/summarize_e2e.py`, D9d.8).
+        field of its own.
 
     Returns
     -------

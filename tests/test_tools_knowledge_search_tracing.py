@@ -1,6 +1,5 @@
 """`knowledge_search` records the retrieved chunks' raw text onto the
-current span, separately from the formatted string the model sees
-(stage 5, `docs/specs/stage-5.md` D5.8)."""
+current span, separately from the formatted string the model sees."""
 
 from __future__ import annotations
 
@@ -46,12 +45,12 @@ def test_knowledge_search_records_retrieval_chunks_on_current_span(
     ]
     monkeypatch.setattr(tools, "get_retriever", lambda: _FakeRetriever(documents))
     # tools.knowledge_search calls load_settings() internally, which reads
-    # OPENROUTER_API_KEY from the environment/.env -- absent in a fresh
-    # clone or CI (CLAUDE.md's own gate-tier rule: every test that builds
-    # Settings passes the key explicitly, per tests/test_retriever_manifest.py's
-    # established convention). A gate test passing locally only because the
-    # author's own .env supplies a key is exactly the "green gate outside
-    # .venv/CI is not evidence of anything" trap.
+    # OPENROUTER_API_KEY from the environment -- absent in a fresh clone or
+    # CI, so every gate test that builds Settings passes the key explicitly,
+    # per tests/test_retriever_manifest.py's established convention. A gate
+    # test passing locally only because the author's own local environment
+    # supplies a key is exactly the "green gate outside .venv/CI is not
+    # evidence of anything" trap.
     monkeypatch.setattr(
         tools,
         "load_settings",
@@ -68,7 +67,7 @@ def test_knowledge_search_records_retrieval_chunks_on_current_span(
     recorded_span = next(s for s in finished if s.name == "tool.knowledge_search")
     # A homogeneous string sequence is a valid OTel attribute type directly
     # -- no JSON encoding needed here, unlike TracingMiddleware's `tool.args`
-    # (a dict, which OTel silently drops unless serialized -- D5.10).
+    # (a dict, which OTel silently drops unless serialized).
     assert recorded_span.attributes is not None
     chunks = recorded_span.attributes["retrieval.chunks"]
     assert chunks == ("chunk one text", "chunk two text") or chunks == [
