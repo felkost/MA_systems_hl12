@@ -1,9 +1,10 @@
 """Filesystem locations, anchored to the checkout rather than to the caller.
 
-`Settings` stores its paths as relative strings (`data`, `index`,
-`.cache/models`) so that no machine-specific path reaches `.env`. Resolving
-them here means `python ingest.py` writes the same index from any working
-directory, and the model cache stays inside the checkout.
+`Settings` stores its paths as relative strings (source data, the vector
+index, the model cache) so that no machine-specific path reaches the
+configuration. Resolving them here means `python ingest.py` writes the same
+index from any working directory, and the model cache stays inside the
+checkout.
 """
 
 from __future__ import annotations
@@ -79,8 +80,7 @@ def run_dir(run_id: str, runs_dir: str | Path = "runs") -> Path:
     Parameters
     ----------
     run_id : str
-        Fresh per question/turn (stage 5, `docs/specs/stage-5.md` D5.7) --
-        not the REPL session's `thread_id`.
+        Fresh per question/turn -- not the REPL session's `thread_id`.
     runs_dir : str or Path, default "runs"
         Explicit so a test can redirect it under `tmp_path`, the same shape
         `log_path`'s `log_dir` already uses.
@@ -102,8 +102,7 @@ def span_dump_path(run_id: str, runs_dir: str | Path = "runs") -> Path:
 
 def prompt_snapshot_path(prompts_dir: str | Path = "prompts") -> Path:
     """Locate the local prompt-text fallback `prompt_store.LangfusePromptStore`
-    writes and reads (stage 1, `docs/specs/stage-1.md`), creating its parent
-    directory if missing.
+    writes and reads, creating its parent directory if missing.
 
     Parameters
     ----------
@@ -120,8 +119,9 @@ def checkpoint_path(db: str | Path) -> Path:
     """Locate the checkpoint database, creating its parent directory if
     missing.
 
-    Has no caller: stage 4 checkpoints in memory, so nothing in the shipped
-    system is crash-safe. Kept for the stage that adds a durable backend.
+    Has no caller: checkpoints currently run in memory, so nothing in the
+    shipped system is crash-safe. Kept for a future addition of a durable
+    backend.
 
     Parameters
     ----------
@@ -135,8 +135,8 @@ def checkpoint_path(db: str | Path) -> Path:
     Notes
     -----
     `AsyncSqliteSaver.from_conn_string` does not create missing parent
-    directories itself -- a fresh checkout's gitignored `runtime/` must exist
-    before the first connection, or the very first session fails.
+    directories itself -- a fresh checkout's gitignored checkpoint directory
+    must exist before the first connection, or the very first session fails.
     """
     result = resolve(db)
     result.parent.mkdir(parents=True, exist_ok=True)

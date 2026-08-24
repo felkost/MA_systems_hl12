@@ -1,14 +1,14 @@
-"""`grounding.py` -- stage 9e, D9e.7a's extractor and D9e.7b's run-scoped
-nudge (`docs/specs/stage-9e.md`).
+"""`grounding.py` -- the false-claim extractor and its run-scoped nudge
+middleware.
 
-D9e.7a's own false-positive gate needs a **real** saved report, not a
+The false-positive gate needs a **real** saved report, not a
 synthetic sentence: a v1 heuristic (any title-case run) was measured to
 fire 15-74 times per real report with no separation between passing and
 failing cases. `tests/fixtures/report-core-agent-vs-rag-boundary.md` and
 `tests/fixtures/report-core-single-vs-multi-agent.md` are two real
-`actualOutput` strings pulled from `runs/4fe7beab-.../eval-results.json`
-(phase-1b's own live checkpoint) -- the spec names both explicitly, since a
-single fixture is not representative at the measured 4x per-case spread.
+`actualOutput` strings pulled from a live evaluation run's persisted
+results -- both are kept explicitly, since a single fixture is not
+representative at the measured 4x per-case spread.
 """
 
 from __future__ import annotations
@@ -46,7 +46,7 @@ def _fixture_text(name: str) -> str:
     return (_FIXTURES_DIR / name).read_text(encoding="utf-8")
 
 
-# -- D9e.7a: extract_candidates ----------------------------------------
+# -- extract_candidates ----------------------------------------
 
 
 def test_explicit_version_token_is_a_candidate() -> None:
@@ -68,7 +68,7 @@ def test_capitalised_run_that_is_entirely_allcaps_qualifies() -> None:
 
 
 def test_bare_title_case_token_alone_does_not_qualify() -> None:
-    # The literal example named in docs/specs/stage-9e.md: "OpenAI alone
+    # A canonical non-qualifying example: "OpenAI alone
     # out" -- no digit, not all-caps.
     assert extract_candidates("Built by OpenAI last year.") == []
 
@@ -88,8 +88,8 @@ def test_markdown_heading_line_is_skipped() -> None:
 
 
 def test_inline_code_span_is_unwrapped_not_skipped() -> None:
-    # Models put fabricated version strings inside inline code -- D9e.7a's
-    # own reason for unwrapping rather than skipping.
+    # Models put fabricated version strings inside inline code -- the
+    # reason for unwrapping rather than skipping.
     assert extract_candidates("Pin the version: `v0.4`.") == ["v0.4"]
 
 
@@ -118,7 +118,7 @@ def test_duplicates_collapse_preserving_first_seen_order() -> None:
     ],
 )
 def test_false_positive_ceiling_on_a_real_saved_report(fixture_name: str) -> None:
-    # D9e.7a's own measured bound for the revised extractor: 4-17 candidates
+    # The measured bound for the revised extractor: 4-17 candidates
     # across real reports, against 15-74 for the rejected v1 heuristic. A
     # generous ceiling, not the exact count -- the point is "not dozens",
     # not reproducing the original session's own script bit for bit.
@@ -126,7 +126,7 @@ def test_false_positive_ceiling_on_a_real_saved_report(fixture_name: str) -> Non
     assert len(candidates) < 30
 
 
-# -- D9e.7b: UnsupportedClaimMiddleware ----------------------------------
+# -- UnsupportedClaimMiddleware ----------------------------------
 
 
 def _model_request(**overrides: Any) -> ModelRequest[Any]:
@@ -156,7 +156,7 @@ def _tool_call_response(name: str = "web_search") -> ModelResponse[Any]:
 
 
 def test_defines_both_hook_variants() -> None:
-    # D3.1b: a missing async variant inherits AgentMiddleware's own
+    # A missing async variant inherits AgentMiddleware's own
     # NotImplementedError, laundered by ToolErrorMiddleware into a
     # plausible-looking failure.
     assert (
@@ -261,7 +261,7 @@ def test_cap_stops_nudging_once_the_run_scoped_limit_is_reached() -> None:
     assert not isinstance(result, ExtendedModelResponse)
 
 
-# -- Stage 9e, phase 3 R.2: same shape as CriticVerificationMiddleware's own
+# -- Same shape as CriticVerificationMiddleware's own
 # regression in tests/test_middleware.py -- the grounding nudge's discarded
 # first response must still get its own `model.<role>` span.
 

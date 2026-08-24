@@ -1,4 +1,4 @@
-"""Stage 9c: `_build_reranker`'s returned compressor shares one cross-encoder
+"""`_build_reranker`'s returned compressor shares one cross-encoder
 instance across every `knowledge_search` call in a process
 (`get_retriever`'s own `lru_cache`, `retriever.py`). A live run crashed with
 a Windows access violation inside `torch`/`transformers` when two of

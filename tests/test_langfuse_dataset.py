@@ -1,11 +1,10 @@
 """`evals/langfuse_dataset.py` -- idempotent upload of `tests/golden_dataset.json`
-into Langfuse Datasets (stage 3, `docs/specs/stage-3.md`).
+into Langfuse Datasets.
 
 Offline, against `tests.fakes.FakeLangfuseDatasets`/`RaisingLangfuseDatasets`
 -- the real `langfuse.api.NotFoundError` exception type, not a stand-in, so
 `sync_golden_dataset`'s `except NotFoundError` clause is proven against the
-exact type it sees live (docs/specs/stage-3.md, section 2, the lane-1
-correction).
+exact type it sees live.
 """
 
 from __future__ import annotations

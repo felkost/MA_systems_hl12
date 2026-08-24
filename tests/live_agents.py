@@ -1,5 +1,4 @@
-"""Runs one real sub-agent, live, for the eval-tier component tests
-(stage 7, `docs/specs/stage-7.md`).
+"""Runs one real sub-agent, live, for the eval-tier component tests.
 
 Not a test module itself (no `test_*` name, so pytest never collects it) --
 a shared helper `tests/test_planner.py`/`test_researcher.py`/`test_critic.py`
@@ -7,8 +6,8 @@ call from inside `@pytest.mark.eval` test bodies.
 
 `AGENT_SPAN_NAME`'s values must match the literal `agent.<role>` spans
 `supervisor.py`/`orchestrator.py` actually open -- pinned against drift by
-`tests/test_agent_span_names.py`. This module opens the same span itself
-(D7.2): `agent.*` spans exist nowhere inside `agents/*.py`, so a helper that
+`tests/test_agent_span_names.py`. This module opens the same span itself:
+`agent.*` spans exist nowhere inside `agents/*.py`, so a helper that
 built a sub-agent and invoked it directly, without opening this span, would
 produce a dump `retrieval_context_for_agent` can never match anything
 against -- indistinguishable from "the model never called
@@ -47,11 +46,11 @@ from tools import CRITIC_TOOLS, PLANNER_TOOLS, RESEARCHER_TOOLS
 
 
 def _live_prompt_store(settings: Settings) -> PromptStore:
-    """A real `LangfusePromptStore` for the eval tier's own live runs (hl12
-    stage 1) -- not shared with `main.build_prompt_store` since `tests/` is
-    exempt from the layer walk but importing `main.py` (interface) into a
-    test helper would still read oddly; this is the same few lines, kept
-    local to this module instead.
+    """A real `LangfusePromptStore` for the eval tier's own live runs --
+    not shared with `main.build_prompt_store` since `tests/` is exempt from
+    the layer walk but importing `main.py` (interface) into a test helper
+    would still read oddly; this is the same few lines, kept local to this
+    module instead.
     """
     assert settings.langfuse_public_key is not None
     assert settings.langfuse_secret_key is not None
@@ -82,7 +81,7 @@ class LiveRun:
     """One live sub-agent invocation's rendered output and full span dump.
 
     `plan` is set only for the planner role. A caller that needs the plan's
-    own fields -- stage 8's R3b derives its expected tool set from
+    own fields -- one test derives its expected tool set from
     `sources_to_check` -- would otherwise have to parse them back out of the
     markdown `render_plan` produced, which would make a rendering change
     silently break an unrelated test.
@@ -113,11 +112,10 @@ def configured_for_eval(settings: Settings) -> Iterator[None]:
 def eval_settings(*, runs_dir: str, settings: Settings) -> Settings:
     """Return `settings` with its span dump and log dir redirected to `runs_dir`.
 
-    Never writes into the project's real `runs/`/`logs/` -- the exact
-    pollution `insights.md` records as a caught stage-5 gate-test mistake,
-    avoided here for a live eval-tier run the same way. `log_dir` joined
-    `span_dump_dir` here at stage 2, once `configure_observability` started
-    calling `configure_file_logging` internally (D2.3).
+    Never writes into the project's real run-dump or log directories, for
+    a live eval-tier run the same way `live_settings` avoids it. `log_dir`
+    is redirected alongside `span_dump_dir` since `configure_observability`
+    calls `configure_file_logging` internally.
     """
     return settings.model_copy(update={"span_dump_dir": runs_dir, "log_dir": runs_dir})
 
@@ -132,12 +130,12 @@ def run_agent_live(role: str, agent_input: str, *, settings: Settings) -> LiveRu
     agent_input : str
         The exact text sent as the sub-agent's one `HumanMessage`. Callers
         render it through `schemas.RESEARCH_INPUT_TEMPLATE` first when they
-        want the production-shaped input (D7.13) -- this function sends
-        whatever string it is given, unmodified.
+        want the production-shaped input -- this function sends whatever
+        string it is given, unmodified.
     settings : Settings
         Must already have `span_dump_dir` pointed off the project's real
-        `runs/` (see `eval_settings`) and observability already configured
-        for this process (see `configured_for_eval`).
+        run-dump directory (see `eval_settings`) and observability already
+        configured for this process (see `configured_for_eval`).
 
     Returns
     -------

@@ -1,4 +1,4 @@
-"""`uses_refusal_appropriateness` (stage 9e, D9e.5).
+"""`uses_refusal_appropriateness`.
 
 Offline: the selection rule is dataset-field-driven and pure, so this file
 never touches a live model -- matches `tests/test_e2e_check_expects.py`'s

@@ -1,5 +1,5 @@
 """`total_agent_cost` -- sums `gen_ai.usage.cost_usd` across a run's own
-spans (stage 9a, `docs/specs/stage-9a.md` D9a.8).
+spans.
 
 Hand-built span trees, matching `tests/test_evals_runner_retrieval_context.py`'s
 own pattern -- no live call, no real dump needed.

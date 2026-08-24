@@ -1,4 +1,4 @@
-"""`paths.py`'s run-artefact helpers (stage 5)."""
+"""`paths.py`'s run-artefact helpers."""
 
 from __future__ import annotations
 

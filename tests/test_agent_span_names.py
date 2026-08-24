@@ -1,12 +1,12 @@
 """`tests/live_agents.py` must open the same `agent.<role>` span names the
-real coordinators use (stage 7, D7.2).
+real coordinators use.
 
 `agent.planner`/`agent.researcher`/`agent.critic` are opened only at
 `supervisor.py` and `orchestrator.py`'s own call sites -- measured this
 session, `agents/*.py` opens none. `retrieval_context_for_agent` walks a
 span's ancestor chain looking for one of these literal names; if
 `live_agents.py`'s own constant ever drifts from what the real coordinators
-use, a stage-7 live run would silently produce a dump `retrieval_context`
+use, a live run would silently produce a dump `retrieval_context`
 can never match against anything, and the failure would look exactly like
 "the model never called knowledge_search" rather than what it actually is.
 This is an AST/source scan in the shape `tests/test_layering.py` already

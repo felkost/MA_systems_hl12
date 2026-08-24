@@ -1,12 +1,11 @@
 """No tracked Python module actually reintroduces a graph store.
 
-CLAUDE.md's Forbidden list bans a graph store outright (see "Three
-deliberate removals" -- a graph store is a second source of truth this
-assignment does not measure).
+This project's own policy bans a graph store outright -- it is a second
+source of truth this assignment does not measure.
 
 Checked with `ast`, not a text search: a naive substring search on
 `"graph_search"`/`"neo4j"` also matches every *legitimate* mention --
-CLAUDE.md and `insights.md` discussing the removal as history, this
+project documentation discussing the removal as history, this
 module's own docstring saying "minus `graph_search`", and
 `test_tools_allowlists.py`'s own `assert "graph_search" not in names`
 checks that graph_search stays absent. What actually indicates

@@ -1,10 +1,10 @@
-"""D3.3: `ResearchPlan.in_scope` -- adopted from `MA_systems_hl10`, not hl8.
+"""`ResearchPlan.in_scope` -- adopted from `MA_systems_hl10`, not hl8.
 
 hl10 measured that a plain Python default made the Planner set this field
 correctly in only 1 of 6 real out-of-scope runs, which is why it carries no
 schema-level default and instead uses a `model_validator(mode="before")`
 that only fills the field in for old-style Python construction, never for
-the wire schema OpenAI's strict mode reads (`docs/specs/stage-3.md`, D3.3).
+the wire schema OpenAI's strict mode reads.
 """
 
 from __future__ import annotations

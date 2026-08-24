@@ -72,7 +72,7 @@ def _build_reranker(
     process shares this one cross-encoder instance. `.score()` runs a
     PyTorch forward pass on it, and two of LangGraph's own tool calls can
     run concurrently on separate threads (`ToolNode` executes a multi-call
-    `AIMessage`'s tool calls in a thread pool) -- measured live, stage 9c,
+    `AIMessage`'s tool calls in a thread pool) -- measured live and reproduced
     as a Windows access violation inside `torch`/`transformers` when two
     `knowledge_search` calls scored on the shared model at the same time.
     `_retriever_lock` already exists for `get_retriever`'s own one-time

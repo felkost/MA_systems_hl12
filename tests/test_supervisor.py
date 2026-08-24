@@ -1,11 +1,10 @@
-"""`supervisor.py`: the agent-as-tool coordination path
-(`docs/specs/stage-4.md`).
+"""`supervisor.py`: the agent-as-tool coordination path.
 
 Two properties are proven end-to-end against real `create_agent`/`ToolNode`
 machinery, not asserted from source reading, because a prior verification
 round found source-level reasoning about this exact SDK insufficient twice:
-that a sub-agent invoked through a wrapper writes no checkpoint (D3.6, D4.3),
-and that `save_report` executes exactly once, only after `approve`.
+that a sub-agent invoked through a wrapper writes no checkpoint, and that
+`save_report` executes exactly once, only after `approve`.
 """
 
 from __future__ import annotations
@@ -113,7 +112,7 @@ def _tool_call(name: str, args: dict[str, Any], call_id: str) -> dict[str, Any]:
     return {"name": name, "args": args, "id": call_id}
 
 
-# -- D4.3: all three wrappers forward the original request in code --
+# -- all three wrappers forward the original request in code --
 
 
 def test_all_three_wrappers_forward_the_original_request() -> None:
@@ -184,7 +183,7 @@ def test_all_three_wrappers_forward_the_original_request() -> None:
         )
 
 
-# -- D4.2/D4.3: plan and critique write state via Command --
+# -- plan and critique write state via Command --
 
 
 def test_plan_wrapper_writes_the_plan_into_state() -> None:
@@ -228,7 +227,7 @@ def test_critique_wrapper_writes_verdict_and_gaps_into_state() -> None:
     assert result["previous_critic_gaps"] is None
 
 
-# -- D4.19: the Supervisor's own tool list --
+# -- the Supervisor's own tool list --
 
 
 def test_supervisor_tool_list_includes_base_tools_and_the_three_wrappers() -> None:
@@ -267,7 +266,7 @@ def test_supervisor_tool_list_includes_base_tools_and_the_three_wrappers() -> No
     assert {t.name for t in [fake_save]} == {"save_report"}
 
 
-# -- D4.21: SUPERVISOR_DELEGATION_TOOLS is a subset of the wrapper names --
+# -- SUPERVISOR_DELEGATION_TOOLS is a subset of the wrapper names --
 
 
 def test_delegation_tools_are_a_subset_of_the_three_wrapper_names() -> None:
@@ -276,7 +275,7 @@ def test_delegation_tools_are_a_subset_of_the_three_wrapper_names() -> None:
     assert middleware.SUPERVISOR_DELEGATION_TOOLS == {"research", "critique"}
 
 
-# -- D4.15: the assembled Supervisor middleware stack's observed order --
+# -- the assembled Supervisor middleware stack's observed order --
 
 
 def test_supervisor_middleware_order() -> None:
@@ -314,7 +313,7 @@ def test_supervisor_blanket_limiter_uses_end_exit_behavior() -> None:
     assert limiter.exit_behavior == "end"
 
 
-# -- D4.3: sub-agents invoked through a wrapper write no checkpoint --
+# -- sub-agents invoked through a wrapper write no checkpoint --
 
 
 def test_sub_agent_invoked_through_a_wrapper_writes_no_checkpoint() -> None:
@@ -352,7 +351,7 @@ def test_sub_agent_invoked_through_a_wrapper_writes_no_checkpoint() -> None:
     assert threads == {"t1"}, f"a sub-agent leaked a checkpoint: {threads}"
 
 
-# -- D4.1/D4.14: exactly one executed save_report, only after approve --
+# -- exactly one executed save_report, only after approve --
 
 
 def test_save_report_executes_exactly_once_after_approve() -> None:
@@ -426,7 +425,7 @@ def test_save_report_never_executes_on_reject() -> None:
     assert calls == []
 
 
-# -- D4.5: the revision cap, boundary --
+# -- the revision cap, boundary --
 
 
 def _revise_args(gap: str) -> dict[str, Any]:

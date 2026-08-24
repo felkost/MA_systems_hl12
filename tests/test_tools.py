@@ -1,11 +1,11 @@
-"""Tool-correctness tests -- R3a/R3b/R3c (`docs/task-hl11.md`, section 3).
+"""Tool-correctness tests -- R3a/R3b/R3c.
 
 `tools_called` is read from the run's own offline span dump, never from a
 mock. This needs one caveat for `save_report` specifically: `TracingMiddleware`
 sits **outside** `SaveReportGuardMiddleware`/`SaveReportVerdictGuardMiddleware`
 in the middleware stack (`supervisor.py`'s `_supervisor_middleware`), so a
 `tool.save_report` span is created whether the call is later refused by a
-guard or actually executes -- measured live this stage: a real run recorded
+guard or actually executes -- measured live: a real run recorded
 two `tool.save_report` spans, the first `ERROR: save_report call refused --
 the verdict is not APPROVE...`, the second `Report saved to: ...`. A span's
 presence alone is therefore not proof the file was written; `test_supervisor_save`

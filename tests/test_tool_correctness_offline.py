@@ -1,5 +1,5 @@
 """Gate-tier validation of `ToolCorrectnessMetric`'s actual scoring
-behaviour (stage 8, D8.8).
+behaviour.
 
 Same reasoning as the component-metric definition tests: a metric whose
 semantics are only ever exercised inside a paid run is a metric nobody has

@@ -4,9 +4,9 @@ The check is structural, not lexical: any string literal longer than
 `PROMPT_LENGTH_FLOOR` characters, anywhere in a project module, is treated as
 prompt text until proven otherwise. A bare docstring statement (the first
 statement of a module/function/class body) is exempt -- it documents, it is
-never sent to a model (`docs/specs/stage-1.md`, requirement 3 -- no system
-prompt text may live in a `.py` file, because a fallback constant in code
-silently becomes the real prompt the day a Langfuse fetch fails).
+never sent to a model. No system prompt text may live in a `.py` file,
+because a fallback constant in code silently becomes the real prompt the
+day a Langfuse fetch fails.
 """
 
 from __future__ import annotations
@@ -30,9 +30,8 @@ _ALLOWED_LONG_LITERALS: dict[str, frozenset[str]] = {
     "tools.py": frozenset({"UNTRUSTED_PREAMBLE"}),
     # `read_url`'s prompt-injection guard: it wraps fetched web content as
     # data, never passed as `system_prompt=` to `create_agent` -- an
-    # infra-owned defensive template, not a system prompt (see CLAUDE.md,
-    # "Three deliberate removals" is unrelated; this is OWASP LLM01
-    # defense-in-depth, layer 2).
+    # infra-owned defensive template, not a system prompt (unrelated to the
+    # graph-store removal; this is OWASP LLM01 defense-in-depth, layer 2).
 }
 
 

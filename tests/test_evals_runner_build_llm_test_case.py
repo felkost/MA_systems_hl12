@@ -1,5 +1,5 @@
 """`build_llm_test_case` -- one run's span dump composed into a DeepEval
-`LLMTestCase` (stage 8, D8.2).
+`LLMTestCase`.
 
 The whole-run (`agent_span_name=None`) case carries its own history: an
 earlier draft of this function returned an **empty** `retrieval_context` at

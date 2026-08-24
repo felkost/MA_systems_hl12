@@ -1,4 +1,4 @@
-"""`tests.fixture_server` -- offline gate coverage (stage 9a, D9a.1).
+"""`tests.fixture_server` -- offline gate coverage.
 
 Loopback-only HTTP, no external network -- safe for the gate tier. Serves a
 throwaway `tmp_path` directory rather than the real `evals/fixtures/`, so

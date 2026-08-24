@@ -1,12 +1,11 @@
-"""Stage 9d D9d.3: `web_search` retries a transient DuckDuckGo failure.
+"""`web_search` retries a transient DuckDuckGo failure.
 
 The failure path **returns** an error string rather than raising, so
 `ToolRetryMiddleware` -- which retries exceptions -- never sees it. Every
-DDG rate-limit was therefore one attempt and done, measured across the
-stage-9a and stage-9c live runs (9 of 15 e2e runs hit
-`ERROR: Web search is temporarily unavailable` in stage 9a alone). The
-retry lives in the tool because that is the only layer that can see this
-failure at all.
+DDG rate-limit was therefore one attempt and done, measured across live
+e2e runs (9 of 15 runs in one batch alone hit
+`ERROR: Web search is temporarily unavailable`). The retry lives in the
+tool because that is the only layer that can see this failure at all.
 """
 
 from __future__ import annotations

@@ -1,9 +1,9 @@
 """`hitl.py`'s REPL decision UX, shared by both coordination paths.
 
-D4.1: `edit` maps onto a real `reject` decision (D6), never `EditDecision`
+`edit` maps onto a real `reject` decision, never `EditDecision`
 (whose `edited_action` a human's free text cannot satisfy) and never
 `RespondDecision` (which claims a write happened without performing one).
-D4.16: the hand-built `HITLRequest` payload must render identically to what
+The hand-built `HITLRequest` payload must render identically to what
 `HumanInTheLoopMiddleware` itself would build for the same tool call.
 """
 
@@ -66,8 +66,8 @@ def test_allowed_decisions_excludes_edit_and_respond() -> None:
 
 def test_build_interrupt_request_matches_the_middleware_default_description() -> None:
     """The exact format `HumanInTheLoopMiddleware._create_action_and_config`
-    builds when no explicit `description` is supplied -- D4.16's
-    indistinguishability requirement."""
+    builds when no explicit `description` is supplied -- the hand-built
+    payload must be indistinguishable from it."""
     request = hitl.build_interrupt_request(
         [{"name": "save_report", "args": {"filename": "x", "content": "y"}}]
     )

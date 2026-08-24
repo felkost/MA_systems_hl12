@@ -1,11 +1,12 @@
-"""`evals.aggregate_runs` (stage 9e, D9e.2a).
+"""`evals.aggregate_runs`.
 
 Offline: DeepEval's own `.latest_run_full.json` is never touched -- every
 test monkeypatches the module-level `LATEST_FULL_TEST_RUN_FILE_PATH` both
 modules read, pointing it at a hand-written fixture file under `tmp_path`
 instead. `merge_runs`/`main` are tested against hand-written snapshot files
 directly, matching `tests/test_record_case_cost.py`'s own pattern of writing
-into a real, throwaway `runs/<uuid>/` and cleaning up after itself.
+into a real, throwaway `paths.run_dir()` directory and cleaning up after
+itself.
 """
 
 from __future__ import annotations
@@ -84,10 +85,10 @@ def test_snapshot_latest_run_raises_load_latest_runs_own_error(
 def test_collect_invocation_artefacts_appends_costs_and_copies_spans(
     eval_run_id: str,
 ) -> None:
-    """Stage 9e phase 1b: bridging two invocations' own `case-costs.jsonl`/
+    """Bridging two invocations' own `case-costs.jsonl`/
     `spans/` was done by hand at the live checkpoint (`cat >>`, `cp`) --
-    this is that step made repeatable, since phase 6's n=3 repeats it six
-    times."""
+    this makes that procedure repeatable, since a repeated run with n=3
+    needs it six times."""
     source_id = str(uuid4())
     try:
         target_dir = paths.run_dir(eval_run_id)

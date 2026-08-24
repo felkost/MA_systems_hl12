@@ -1,11 +1,10 @@
-"""`retriever.py` checks `index/manifest.json`, it does not trust it.
+"""`retriever.py` checks the index's manifest file, it does not trust it.
 
 An index built with one embedding model returns confident nonsense under a
 different one -- nothing about a vector-dimension or provider mismatch raises
 on its own. `retriever.verify_manifest` is the one place that compares what
 the index says it was built with against what `Settings` currently resolves
-to, and refuses instead of degrading silently (`docs/specs/stage-2.md`,
-"`ingest.py` -- manifest is checked, not trusted").
+to, and refuses instead of degrading silently.
 
 Offline: no embedding call, no Chroma collection is opened. Only the JSON
 comparison is under test.

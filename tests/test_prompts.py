@@ -1,12 +1,11 @@
-"""`prompts.PROMPT_NAMES` -- the name/label registry, not prompt text
-(hl12 stage 1, `docs/specs/stage-1.md`).
+"""`prompts.PROMPT_NAMES` -- the name/label registry, not prompt text.
 
-Before this stage, this file asserted on prompt *text* registered in
-`prompts.py` directly (hl11's `PLANNER_PROMPTS`/... registries). That text
-now lives only in Langfuse (`docs/prompt-seeds-hl12.md`); nothing in this
-project reads it back out of a `.py` file, so nothing here can assert on it
-either -- see `tests/test_no_hardcoded_prompts.py` for the structural
-guard that a prompt string never reappears in code.
+Before this project's prompt-store rewrite, this file asserted on prompt
+*text* registered in `prompts.py` directly (hl11's `PLANNER_PROMPTS`/...
+registries). That text now lives only in Langfuse; nothing in this project
+reads it back out of a `.py` file, so nothing here can assert on it either
+-- see `tests/test_no_hardcoded_prompts.py` for the structural guard that
+a prompt string never reappears in code.
 """
 
 from __future__ import annotations
@@ -38,7 +37,7 @@ def test_prompt_names_are_unique() -> None:
 def test_every_prompt_name_is_hl12_prefixed() -> None:
     # A stray hl11-prefixed (or unprefixed) name here would fetch a
     # different project's prompt -- or nothing -- from the shared Langfuse
-    # organisation. See CLAUDE.md's Forbidden list.
+    # organisation. Every prompt name this project uses must be hl12-prefixed.
     for role, name in PROMPT_NAMES.items():
         assert name.startswith("hl12-"), f"{role!r}: {name!r} is not hl12-prefixed"
 

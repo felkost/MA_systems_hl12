@@ -1,13 +1,12 @@
 """`observability.py` -- TracerProvider ownership, Langfuse attachment, the
-offline span dump, cost computation, rotating file logs (stage 5,
-`docs/specs/stage-5.md`).
+offline span dump, cost computation, rotating file logs.
 
-D5.14 -- OpenTelemetry's global `TracerProvider` registration is a
+OpenTelemetry's global `TracerProvider` registration is a
 process-wide singleton with no public reset API. `_reset_otel_global_state`
 resets both OTel's own private globals and this module's own `_CONFIGURED`
-sentinel (D5.13); an autouse fixture applies it before and after every test
+sentinel; an autouse fixture applies it before and after every test
 in this file. `tests/test_main.py` imports and reuses this same helper
-around its one test that also needs a registered provider (D5.14, round 2).
+around its one test that also needs a registered provider.
 """
 
 from __future__ import annotations
@@ -32,14 +31,14 @@ from config import Settings
 
 def _settings(**overrides: Any) -> Settings:
     # `tracing_enabled` defaults False here, never inherited from a real
-    # `.env` -- pydantic-settings falls through to the dotenv/environment
+    # local env file -- pydantic-settings falls through to the dotenv/environment
     # source for any field this helper doesn't pass explicitly, so a
     # developer machine with TRACING_ENABLED=true and real Langfuse keys
     # would otherwise make every `configure_observability(_settings())`
     # call in this file build a REAL client and export real spans to the
-    # real project (confirmed live, stage 2: two of this file's tests did
-    # exactly that before this default was added -- CLAUDE.md's "a gate
-    # test that reaches the network is a broken test, not a slow one").
+    # real project (confirmed live: two of this file's tests did
+    # exactly that before this default was added -- a gate
+    # test that reaches the network is a broken test, not a slow one).
     # A test that deliberately wants `tracing_enabled=True` overrides it.
     overrides.setdefault("tracing_enabled", False)
     return Settings(openrouter_api_key=SecretStr("test-key"), **overrides)
@@ -143,8 +142,8 @@ def test_offline_span_dump_uses_a_simple_not_batch_processor(tmp_path: Path) -> 
     )
 
 
-# -- Stage 2, D2.1: the provider-hijack non-regression tests. Reproduces the
-# diagnosed defect (`docs/specs/stage-2.md`, section 1): `main.py` used to
+# -- The provider-hijack non-regression tests. Reproduces the
+# diagnosed defect: `main.py` used to
 # build a prompt-store `Langfuse` client before `configure_observability`,
 # and `LangfuseResourceManager`'s per-public_key singleton silently
 # discarded the second construction's `tracer_provider=`/
@@ -165,9 +164,9 @@ def test_configure_observability_then_reused_client_still_writes_the_offline_dum
         log_dir=str(tmp_path),
     )
     handle = observability.configure_observability(settings)
-    # D2.1: main.py's real startup order -- configure_observability first,
+    # main.py's real startup order -- configure_observability first,
     # then build_prompt_store reusing the one client it built. Before this
-    # stage, `build_prompt_store` took no `client=` keyword at all, so this
+    # was fixed, `build_prompt_store` took no `client=` keyword at all, so this
     # call would have raised `TypeError` -- the RED state this test pins.
     main_module.build_prompt_store(settings, client=handle.langfuse_client)
 
@@ -189,8 +188,8 @@ def test_configure_observability_then_reused_client_still_writes_the_offline_dum
 def test_a_second_langfuse_client_with_the_same_public_key_ignores_new_kwargs(
     tmp_path: Path,
 ) -> None:
-    """Pins the load-bearing SDK finding behind D2.1 (`docs/specs/stage-2.md`,
-    section 1): `LangfuseResourceManager` is a singleton keyed by
+    """Pins the load-bearing SDK finding:
+    `LangfuseResourceManager` is a singleton keyed by
     `public_key`, so a second `Langfuse(public_key=<same key>, ...)`
     construction returns the first instance and silently ignores every
     other keyword this second call passed -- including a
@@ -263,10 +262,9 @@ def test_compute_cost_or_raise_returns_the_same_value_as_compute_cost() -> None:
 
 
 def test_compute_cost_or_raise_names_the_model_for_an_unpriced_one() -> None:
-    """D9e.17: `tests/test_e2e.py` used to apply `or 0.0` to `compute_cost`,
-    which silently recorded an unpriced judge model's entire cost as $0.00.
-    An unknown model must fail loudly instead, naming the model, not return
-    a silent zero."""
+    """Applying `or 0.0` to `compute_cost` used to silently record an
+    unpriced judge model's entire cost as $0.00. An unknown model must fail
+    loudly instead, naming the model, not return a silent zero."""
     with pytest.raises(ValueError, match="vendor/unpriced-model"):
         observability.compute_cost_or_raise("vendor/unpriced-model", 100, 50)
 
@@ -303,9 +301,9 @@ def test_run_id_stamping_tags_every_span_in_a_turn_not_the_previous_turns(
 
     # span_dump_dir redirected to tmp_path even though this test only
     # inspects the in-memory exporter below -- configure_observability
-    # always attaches a real SpanJsonExporter too (D5.4), which would
+    # always attaches a real SpanJsonExporter too, which would
     # otherwise write run-A/run-B directories into the real project's
-    # runs/ on every gate run.
+    # span-dump directory on every gate run.
     handle = observability.configure_observability(
         _settings(span_dump_dir=str(tmp_path), log_dir=str(tmp_path))
     )

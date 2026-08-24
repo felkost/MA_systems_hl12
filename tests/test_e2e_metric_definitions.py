@@ -1,8 +1,7 @@
-"""Gate-tier validation of the three e2e metric definitions (stage 9a,
-`docs/specs/stage-9a.md`, declared test 6).
+"""Gate-tier validation of the three e2e metric definitions.
 
 Matches `tests/test_component_metric_definitions.py`'s own pattern for the
-stage-7 trio: each metric constructs offline against a fake-key
+component trio: each metric constructs offline against a fake-key
 `OpenRouterModel`, so a typo in a step string, a wrong `evaluation_params`
 list, or a wrong threshold is a gate-tier defect, not a rediscovery during a
 live run.
@@ -34,7 +33,7 @@ def test_answer_relevancy_definition() -> None:
     metric = _answer_relevancy_metric(_fake_model())
     assert isinstance(metric, AnswerRelevancyMetric)
     assert metric.threshold == 0.7
-    assert metric.include_reason is True  # D9a.5 -- stage 9b needs the reason text
+    assert metric.include_reason is True  # the reason text is needed downstream
 
 
 def test_correctness_definition() -> None:
@@ -51,11 +50,11 @@ def test_correctness_definition() -> None:
 
 
 def test_refusal_appropriateness_definition() -> None:
-    """D9e.5/D9e.5a -- substituted for Answer Relevancy on
+    """Substituted for Answer Relevancy on
     `expects.out_of_scope` cases. Same threshold as the metric it replaces
     (no threshold lowered); carries a rubric the other four metrics
-    deliberately do not (D9e.5a: adding one to an existing metric mid-series
-    would break comparability with 9a/9c/9d)."""
+    deliberately do not -- adding one to an existing metric mid-series
+    would break comparability with earlier runs."""
     metric = _refusal_appropriateness_metric(_fake_model())
     assert metric.name == "Refusal Appropriateness"
     assert _param_values(metric) == {"input", "actual_output", "expected_output"}

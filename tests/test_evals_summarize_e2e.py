@@ -1,10 +1,10 @@
-"""`evals.summarize_e2e` (stage 9a, `docs/specs/stage-9a.md` D9a.8).
+"""`evals.summarize_e2e`.
 
 Offline: a hand-built, **camelCase**, `.latest_run_full.json`-shaped fixture
-dict (`testCases`/`metricsData`, matching the real file's own shape --
-`docs/specs/stage-9a.md` N5/N6/N7, measured live against the real CLI
-during this stage's own kickoff) mixing e2e and non-e2e metric names, plus
-a hand-built case-costs list. No live call, no `.deepeval/` file needed.
+dict (`testCases`/`metricsData`, matching the real DeepEval CLI output's own
+shape, measured live against the real CLI) mixing e2e and non-e2e metric
+names, plus a hand-built case-costs list. No live call, no `.deepeval/` file
+needed.
 """
 
 from __future__ import annotations
@@ -47,7 +47,7 @@ def _fake_full_run() -> dict:
                 ],
             },
             {
-                # A stage-7 component-test case in the same persisted file --
+                # A component-test case in the same persisted file --
                 # deepeval test run tests/ collects every eval-tier file.
                 "name": "plan-quality-case",
                 "metricsData": [_metric("Plan Quality [GEval]", 0.9, 0.7, True)],
@@ -178,7 +178,7 @@ def test_render_summary_markdown_handles_an_errored_metric_with_no_score() -> No
     assert "Answer Relevancy: avg" not in markdown
 
 
-# -- Stage-9d D9d.8: the report covers all five test files, not e2e alone --
+# -- The report covers all five test files, not e2e alone --
 
 
 def _five_file_run() -> dict:
@@ -238,7 +238,7 @@ def test_render_summary_markdown_shows_every_test_file_with_its_own_lines() -> N
 
 
 def test_filter_e2e_cases_keeps_a_case_scored_by_refusal_appropriateness() -> None:
-    """D9e.5/D9e.6: since the metric substitution, an e2e case carries one
+    """Since the metric substitution, an e2e case carries one
     of two possible trios (Answer Relevancy or Refusal Appropriateness),
     both subsets of the four-name superset -- never both trios at once. The
     old equality check would have dropped this case from the summary and
@@ -268,7 +268,7 @@ def test_filter_e2e_cases_drops_a_case_with_no_metrics_at_all() -> None:
 
 
 def test_render_summary_markdown_without_component_groups_is_e2e_only() -> None:
-    """The stage-9a shape stays available: a run over `tests/test_e2e.py`
+    """An e2e-only shape stays available: a run over `tests/test_e2e.py`
     alone must not sprout empty headings for files it never collected."""
     run = _fake_full_run()
     cases = filter_e2e_cases(run, category_by_id=_CATEGORY_BY_ID)

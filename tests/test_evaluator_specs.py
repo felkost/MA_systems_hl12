@@ -1,8 +1,8 @@
 """Gate-tier checks on `evals/evaluator_specs.json` and its judge prompts.
 
 Offline only: this proves the local data files are internally consistent,
-never that the live Langfuse UI actually matches them (`docs/specs/stage-4.md`,
-D4.4) -- that half is only checkable by the screenshots and the live run.
+never that the live Langfuse UI actually matches them -- that half is only
+checkable by the screenshots and the live run.
 """
 
 from __future__ import annotations

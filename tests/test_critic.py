@@ -1,24 +1,21 @@
-"""Critic component tests -- GEval `Critique Quality` (R2b,
-`docs/task-hl11.md`).
+"""Critic component tests -- GEval `Critique Quality`.
 
 Inputs are **committed fixtures**
 (`evals/fixtures/findings_strong.md`/`findings_thin.md`), not a live
 Researcher run chained into a live Critic run: chaining two live agents
 would make a Critic score depend on Researcher variance, and a red result
 would not localise to either agent. The fixtures differ in exactly the
-properties the brief's own Critique Quality steps ask about -- specific,
-cited findings vs. vague, uncited ones -- so the pair exercises both the
-APPROVE-leaning and REVISE-leaning paths. The **verdict itself is never
-asserted**; only the quality of the critique is scored (`docs/specs/stage-7.md`,
-D7.9).
+properties the Critique Quality steps ask about -- specific, cited findings
+vs. vague, uncited ones -- so the pair exercises both the APPROVE-leaning
+and REVISE-leaning paths. The **verdict itself is never asserted**; only the
+quality of the critique is scored.
 
 `Settings.critic_prompt_version` defaults to `"c2"`, which is *stricter*
 than this exact metric measures: `c2` forbids `APPROVE` alongside any gap
-at all, while the brief's own step 3 permits `APPROVE` with "empty or …
-only minor" gaps (`insights.md`, stage 3). A systematically lower score on
-`findings_strong.md` than an `APPROVE`-permissive prompt would produce is
-a plausible, already-predicted outcome of that choice -- reported, not
-tuned away.
+at all, while the assignment brief permits `APPROVE` with "empty or …
+only minor" gaps. A systematically lower score on `findings_strong.md` than
+an `APPROVE`-permissive prompt would produce is a plausible,
+already-predicted outcome of that choice -- reported, not tuned away.
 """
 
 from __future__ import annotations

@@ -1,8 +1,7 @@
-"""`tools_called_for_agent` -- span-derived tool-call extraction (stage 8,
-D8.1).
+"""`tools_called_for_agent` -- span-derived tool-call extraction.
 
-The plan's own stage-8 criterion is that `tools_called` comes from the
-offline span dump, never from a mock object, so these tests pin the
+`tools_called` must come from the offline span dump, never from a mock
+object, so these tests pin the
 extraction against hand-built span trees rather than against whichever real
 run happened to exist when the code was written.
 
@@ -74,8 +73,8 @@ def test_named_agent_scope_selects_only_its_own_tool_calls() -> None:
 
 
 def test_whole_run_scope_includes_every_tool_span_at_any_depth() -> None:
-    # The shape a real Supervisor turn produces (measured, stage-8 spec
-    # N11): the four Supervisor tools at the top level, each sub-agent's own
+    # The shape a real Supervisor turn produces (measured): the four
+    # Supervisor tools at the top level, each sub-agent's own
     # calls nested under its agent span. Whole-run scope is every one of
     # them -- "the Supervisor's tools" and "every tool call in the run" are
     # not the same set, and this mode is explicitly the second.
@@ -146,7 +145,7 @@ def test_missing_tool_args_yields_a_call_without_input_parameters() -> None:
 
 
 def test_truncated_tool_args_yields_a_call_without_arguments_not_an_error() -> None:
-    # Non-regression: the first stage-8 live run raised here on a perfectly
+    # Non-regression: a live run once raised here on a perfectly
     # healthy Supervisor turn. `TracingMiddleware` caps `tool.args`, and a
     # delegation argument routinely exceeds the cap, so valid JSON reaches
     # the dump with its tail removed. The arguments are unrecoverable, the

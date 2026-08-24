@@ -111,9 +111,8 @@ def test_get_model_name_returns_the_configured_id() -> None:
 
 
 def test_default_timeout_is_generous_enough_for_a_full_report_judge_call() -> None:
-    """Stage 9d D9d.4, raised again at stage 9e phase 1b. A judge call
-    carrying a saved report plus a full retrieval context errored at 60s in
-    the 9a/9c runs and again at 120s in the 9e phase-1b run
+    """A judge call carrying a saved report plus a full retrieval context
+    errored at 60s in an earlier run and again at 120s in a later run
     (`adversarial-direct-jailbreak`, `httpx.ReadTimeout`) -- an errored
     metric carries no score at all, so the case is lost, not merely slow.
     Each raise followed a measured timeout, never a precaution."""
@@ -122,7 +121,7 @@ def test_default_timeout_is_generous_enough_for_a_full_report_judge_call() -> No
 
 
 def test_client_timeout_leaves_slack_under_deepevals_per_task_budget() -> None:
-    """D9e.1's invariant, pinned as arithmetic rather than left in prose:
+    """The invariant, pinned as arithmetic rather than left in prose:
     `PER_TASK >= n_sequential_judge_calls * httpx_timeout + slack`.
     `AnswerRelevancyMetric` makes 3 sequential calls, so raising either
     number without the other silently reintroduces the cancellation this
@@ -136,7 +135,7 @@ def test_client_timeout_leaves_slack_under_deepevals_per_task_budget() -> None:
     assert per_task > sequential_answer_relevancy_calls * client_timeout
 
 
-# -- Stage 9e, D9e.16: the judge's thinking budget, controllable and off --
+# -- The judge's thinking budget, controllable and off --
 
 
 def test_payload_carries_no_reasoning_key_when_unset() -> None:

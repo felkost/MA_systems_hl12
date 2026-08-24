@@ -1,6 +1,6 @@
-"""`truncate_for_span` and `was_truncated_for_span` must agree (stage 8).
+"""`truncate_for_span` and `was_truncated_for_span` must agree.
 
-Non-regression for a defect the stage-8 live run found: `tools_called_for_agent`
+Non-regression for a defect a live run found: `tools_called_for_agent`
 raised on a real Supervisor turn because `tool.args` was **truncated** and
 therefore not parsable JSON. Truncation is normal -- a delegation argument
 routinely exceeds the payload cap -- so the reader has to tell a cut payload
@@ -31,7 +31,7 @@ def test_truncated_text_is_detected_by_the_predicate() -> None:
 
 
 def test_a_truncated_json_payload_stops_being_parsable() -> None:
-    # The exact shape that broke the first stage-8 live run: valid JSON in,
+    # The exact shape that broke a real live run: valid JSON in,
     # unparsable text out, with nothing wrong anywhere.
     payload = json.dumps({"task": "y" * 500})
     truncated = truncate_for_span(payload, 100)

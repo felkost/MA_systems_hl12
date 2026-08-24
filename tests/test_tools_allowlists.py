@@ -1,12 +1,11 @@
 """Each agent gets exactly the tools its architecture row prescribes.
 
 The four named lists in `tools.py` are the single source of truth the agent
-factories build from (stage 3) -- a name missing here is a tool the model
-never learns exists, and a name present here that shouldn't be widens what
-that agent can do. Ported from hl8 minus `graph_search`
-(`docs/specs/stage-2.md`, deliverables table: "`tools.py` | hl8, minus
-`graph_search`"). The Planner in particular gets no `read_url`: it explores
-with search tools only, it does not deep-read a single source.
+factories build from -- a name missing here is a tool the model never
+learns exists, and a name present here that shouldn't be widens what that
+agent can do. Ported from hl8 minus `graph_search`. The Planner in
+particular gets no `read_url`: it explores with search tools only, it does
+not deep-read a single source.
 """
 
 from __future__ import annotations

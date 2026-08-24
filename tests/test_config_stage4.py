@@ -1,10 +1,8 @@
-"""Stage-4 spec addition to `Settings`: the derived
-`resolved_supervisor_max_tool_calls` (D4.4, D4.13).
+"""Addition to `Settings`: the derived `resolved_supervisor_max_tool_calls`.
 
-`composer_prompt_version` was this file's other stage-4 addition; deleted at
-hl12 stage 1 along with every `Settings.*_prompt_version` field
-(`docs/specs/stage-1.md`) -- a Langfuse label replaces what a version field
-used to select.
+`composer_prompt_version` was this file's other earlier addition; deleted
+along with every `Settings.*_prompt_version` field -- a Langfuse label
+replaces what a version field used to select.
 """
 
 from __future__ import annotations

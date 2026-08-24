@@ -4,9 +4,8 @@ what it writes by when it was written.
 The refusal is policy-class: `resolve_report_path` raises `ReportPathError`,
 a typed exception, rather than returning a wrong path -- so the `@tool`
 wrapper's caught-and-converted `"ERROR: ..."` string is distinguishable, in a
-span, from "the disk was full" (`docs/specs/stage-2.md`, "`tools.py` --
-guardrails ship with the tools, not after them"). `save_report` also never
-overwrites a file that already exists.
+span, from "the disk was full" -- guardrails ship with the tools, not after
+them. `save_report` also never overwrites a file that already exists.
 
 The confinement tests call `resolve_report_path` directly: LangChain's
 `@tool` decorator turns the function into a `BaseTool` whose `.invoke()`

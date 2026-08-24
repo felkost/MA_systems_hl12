@@ -1,6 +1,6 @@
-"""`evals/runner.py` -- stage 5's own slice (D5.1, `docs/specs/stage-5.md`):
-the span-JSON schema and `load_run()`. `build_llm_test_case()` (turning a
-run into a DeepEval `LLMTestCase`) ships at stage 8, against this schema.
+"""`evals/runner.py` -- the span-JSON schema and `load_run()`.
+`build_llm_test_case()` (turning a run into a DeepEval `LLMTestCase`) ships
+later, against this schema.
 """
 
 from __future__ import annotations

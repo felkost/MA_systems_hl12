@@ -1,11 +1,11 @@
 """Fetches every agent system prompt from Langfuse Prompt Management by name
-and label (stage 1, `docs/specs/stage-1.md`) -- the mechanism requirement 3
-exists for: no prompt text lives in a `.py` file, so a prompt change is a
+and label -- the mechanism this project's own requirement exists for: no
+prompt text lives in a `.py` file, so a prompt change is a
 Langfuse action, never a code deploy.
 
 **The fallback contract rides the real SDK's own, not a hand-rolled one**
-(measured on the installed `langfuse==4.14.4`, `docs/specs/stage-1.md`
-section 2): `Langfuse.get_prompt(..., fallback=text)` returns a client with
+(measured on the installed `langfuse==4.14.4`):
+`Langfuse.get_prompt(..., fallback=text)` returns a client with
 `is_fallback=True` on a fetch error when `text` is truthy, and raises when it
 is not. `LangfusePromptStore.get` always passes the local snapshot's text
 (or `None`) as `fallback`, so it never needs its own try/except-then-read-
@@ -30,8 +30,8 @@ logger = logging.getLogger("hl12.prompt_store")
 class PromptUnavailableError(RuntimeError):
     """A prompt could be fetched from neither Langfuse nor the local
     snapshot. Typed so a caller (or a test) can distinguish this from any
-    other `RuntimeError` -- CLAUDE.md's tool-error invariant, applied to a
-    non-tool sink."""
+    other `RuntimeError` -- this project's tool-error invariant, applied to
+    a non-tool sink."""
 
     def __init__(self, name: str) -> None:
         super().__init__(
@@ -146,9 +146,9 @@ class LangfusePromptStore:
             self._write_snapshot(name, result.prompt)
 
         # Delegates to the client's own `.compile()` -- the real SDK's
-        # `TemplateParser.compile_template` (measured permissive both ways:
-        # docs/specs/stage-1.md section 2) -- rather than reimplementing
-        # variable substitution a second time here.
+        # `TemplateParser.compile_template` (measured permissive both ways)
+        # -- rather than reimplementing variable substitution a second
+        # time here.
         return result.compile(**variables) if variables else result.prompt
 
     def _read_snapshot(self) -> dict[str, str]:

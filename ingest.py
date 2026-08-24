@@ -6,8 +6,7 @@ read many times, so retrieval never triggers embedding of `data/`.
 A repeated run is free: chunk ids are derived from the file contents, so a
 source file that is already indexed is skipped instead of embedded again.
 
-No `--graph` flag: this project carries no graph store (CLAUDE.md, "Three
-deliberate removals").
+No `--graph` flag: this project carries no graph store, by design.
 """
 
 from __future__ import annotations
@@ -306,7 +305,7 @@ def main() -> None:
     try:
         settings = load_settings()
     except ValidationError:
-        print("Configuration error: check OPENROUTER_API_KEY and .env.")
+        print("Configuration error: check OPENROUTER_API_KEY and your environment.")
         raise SystemExit(1)
 
     print(f"Reading {paths.resolve(settings.data_dir)}")

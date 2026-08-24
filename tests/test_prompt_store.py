@@ -1,10 +1,10 @@
 """`prompt_store.py`'s two `PromptStore` implementations.
 
 `LangfusePromptStore`'s fallback tests exercise the real
-`Langfuse.get_prompt` contract measured on the installed `langfuse==4.14.4`
-(`docs/specs/stage-1.md`, section 2), not an invented one: passing
-`fallback=` makes the SDK return an `is_fallback=True` client instead of
-raising, and passing no snapshot at all is what makes it raise.
+`Langfuse.get_prompt` contract measured on the installed `langfuse==4.14.4`,
+not an invented one: passing `fallback=` makes the SDK return an
+`is_fallback=True` client instead of raising, and passing no snapshot at
+all is what makes it raise.
 """
 
 from __future__ import annotations

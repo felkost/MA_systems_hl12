@@ -1,5 +1,4 @@
-"""Offline tests for `OpenRouterModel`'s optional usage accumulator (stage
-9a, `docs/specs/stage-9a.md` D9a.7).
+"""Offline tests for `OpenRouterModel`'s optional usage accumulator.
 
 No network call -- every test injects an `httpx.MockTransport`, matching
 `tests/test_deepeval_model.py`'s own pattern.
@@ -65,7 +64,7 @@ def test_usage_log_accumulates_across_calls_in_order_when_given() -> None:
 
 
 def test_usage_log_is_shared_across_two_model_instances_given_the_same_list() -> None:
-    """The design this stage relies on (D9a.7): one instance is reused across
+    """The design the e2e run relies on: one instance is reused across
     45 metric measurements, but the log itself is just a plain list a caller
     can pass to more than one model if it ever needed to."""
     shared_log: list[dict[str, int]] = []

@@ -1,7 +1,7 @@
-"""`evals.repeat_summary` (stage 9e phase 6, D9e.11's own reporting shape).
+"""`evals.repeat_summary` -- its own reporting shape.
 
 Offline, hand-written `eval-results.json` fixtures under `tmp_path`/a
-throwaway `runs/<uuid>/` -- no live spend, matching
+throwaway `paths.run_dir()` directory -- no live spend, matching
 `tests/test_evals_aggregate_runs.py`'s own pattern.
 """
 
