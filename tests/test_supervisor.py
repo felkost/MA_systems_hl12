@@ -25,7 +25,7 @@ import middleware
 import supervisor
 import tools as project_tools
 from config import Settings
-from tests.fakes import FakeToolCallingModel
+from tests.fakes import FakeToolCallingModel, fake_prompt_store
 
 _PLAN_ARGS = {
     "goal": "g",
@@ -168,7 +168,10 @@ def test_all_three_wrappers_forward_the_original_request() -> None:
         ),
     }
     graph = supervisor.create_supervisor(
-        _settings(), role_models=role_models, base_tools=[fake_save]
+        _settings(),
+        role_models=role_models,
+        prompt_store=fake_prompt_store(),
+        base_tools=[fake_save],
     )
     graph.invoke({"messages": [HumanMessage(content="What is the capital of France?")]})
 
@@ -193,7 +196,10 @@ def test_plan_wrapper_writes_the_plan_into_state() -> None:
         ]
     )
     graph = supervisor.create_supervisor(
-        _settings(), role_models=role_models, base_tools=[fake_save]
+        _settings(),
+        role_models=role_models,
+        prompt_store=fake_prompt_store(),
+        base_tools=[fake_save],
     )
     result = graph.invoke({"messages": [HumanMessage(content="q")]})
     assert result["plan"].goal == "g"
@@ -211,7 +217,10 @@ def test_critique_wrapper_writes_verdict_and_gaps_into_state() -> None:
         ],
     )
     graph = supervisor.create_supervisor(
-        _settings(), role_models=role_models, base_tools=[fake_save]
+        _settings(),
+        role_models=role_models,
+        prompt_store=fake_prompt_store(),
+        base_tools=[fake_save],
     )
     result = graph.invoke({"messages": [HumanMessage(content="q")]})
     assert result["verdict"] == "REVISE"
@@ -231,12 +240,14 @@ def test_supervisor_tool_list_includes_base_tools_and_the_three_wrappers() -> No
             responses=[AIMessage(content=json.dumps(_PLAN_ARGS))]
         ),
         middleware=[],
+        system_prompt="Test system prompt.",
     )
     research_graph = supervisor.create_research_agent(
         _settings(),
         project_tools.RESEARCHER_TOOLS,
         model=FakeToolCallingModel(responses=[AIMessage(content="f")]),
         middleware=[],
+        system_prompt="Test system prompt.",
     )
     critic_graph = supervisor.create_critic_agent(
         _settings(),
@@ -245,6 +256,7 @@ def test_supervisor_tool_list_includes_base_tools_and_the_three_wrappers() -> No
             responses=[AIMessage(content=json.dumps(_APPROVE_ARGS))]
         ),
         middleware=[],
+        system_prompt="Test system prompt.",
     )
     wrapper_names = {
         supervisor._make_plan_tool(planner_graph).name,
@@ -326,7 +338,11 @@ def test_sub_agent_invoked_through_a_wrapper_writes_no_checkpoint() -> None:
     )
     saver = MemorySaver()
     graph = supervisor.create_supervisor(
-        _settings(), role_models=role_models, base_tools=[fake_save], checkpointer=saver
+        _settings(),
+        role_models=role_models,
+        prompt_store=fake_prompt_store(),
+        base_tools=[fake_save],
+        checkpointer=saver,
     )
     graph.invoke(
         {"messages": [HumanMessage(content="q")]},
@@ -361,6 +377,7 @@ def test_save_report_executes_exactly_once_after_approve() -> None:
     graph = supervisor.create_supervisor(
         _settings(),
         role_models=role_models,
+        prompt_store=fake_prompt_store(),
         base_tools=[fake_save],
         checkpointer=MemorySaver(),
     )
@@ -396,6 +413,7 @@ def test_save_report_never_executes_on_reject() -> None:
     graph = supervisor.create_supervisor(
         _settings(),
         role_models=role_models,
+        prompt_store=fake_prompt_store(),
         base_tools=[fake_save],
         checkpointer=MemorySaver(),
     )
@@ -453,7 +471,10 @@ def test_revision_cap_refuses_the_call_past_max_revisions_plus_one() -> None:
         ],
     )
     graph = supervisor.create_supervisor(
-        _settings(max_revisions=1), role_models=role_models, base_tools=[fake_save]
+        _settings(max_revisions=1),
+        role_models=role_models,
+        prompt_store=fake_prompt_store(),
+        base_tools=[fake_save],
     )
     result = graph.invoke({"messages": [HumanMessage(content="q")]})
     tool_messages = [
@@ -484,6 +505,7 @@ def test_revision_cap_resets_on_a_new_question_in_the_same_session() -> None:
     graph = supervisor.create_supervisor(
         _settings(max_revisions=1),
         role_models=role_models,
+        prompt_store=fake_prompt_store(),
         base_tools=[fake_save],
         checkpointer=MemorySaver(),
     )

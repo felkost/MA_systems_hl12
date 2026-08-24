@@ -33,6 +33,7 @@ from langchain.agents.middleware.human_in_the_loop import HITLRequest, HITLRespo
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langchain_core.runnables import RunnableConfig
+from langfuse import Langfuse
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph.state import CompiledStateGraph
@@ -43,8 +44,10 @@ import hitl
 import models
 import observability
 import orchestrator
+import paths
 import supervisor
 from config import Settings, load_settings
+from prompt_store import LangfusePromptStore, PromptStore
 
 Orchestration = Literal["supervisor", "graph"]
 
@@ -61,6 +64,7 @@ def build_graph(
     orchestration: Orchestration,
     *,
     role_models: Mapping[str, BaseChatModel],
+    prompt_store: PromptStore,
     checkpointer: BaseCheckpointSaver[Any] | None,
 ) -> CompiledStateGraph[Any, Any, Any, Any]:
     """Build the compiled graph `--orchestration` selects.
@@ -73,10 +77,46 @@ def build_graph(
     """
     if orchestration == "supervisor":
         return supervisor.create_supervisor(
-            settings, role_models=role_models, checkpointer=checkpointer
+            settings,
+            role_models=role_models,
+            prompt_store=prompt_store,
+            checkpointer=checkpointer,
         )
     return orchestrator.create_orchestrator_graph(
-        settings, role_models=role_models, checkpointer=checkpointer
+        settings,
+        role_models=role_models,
+        prompt_store=prompt_store,
+        checkpointer=checkpointer,
+    )
+
+
+def build_prompt_store(settings: Settings) -> PromptStore:
+    """The real `PromptStore` `main.py` uses: Langfuse Cloud, with the local
+    snapshot as `fallback=` (hl12 stage 1).
+
+    A separate `Langfuse` client from `observability.py`'s tracing one --
+    prompt fetching must work whether or not `settings.tracing_enabled`,
+    since every agent's system prompt now depends on it (requirement 3),
+    while tracing is a genuinely optional concern.
+    """
+    if settings.langfuse_public_key is None or settings.langfuse_secret_key is None:
+        raise RuntimeError(
+            "LANGFUSE_PUBLIC_KEY/LANGFUSE_SECRET_KEY are not set -- prompt "
+            "fetching requires them regardless of TRACING_ENABLED, since "
+            "every agent's system prompt is fetched from Langfuse"
+        )
+    client = Langfuse(
+        public_key=settings.langfuse_public_key.get_secret_value(),
+        secret_key=settings.langfuse_secret_key.get_secret_value(),
+        host=settings.langfuse_base_url,
+    )
+    snapshot_path = (
+        paths.prompt_snapshot_path() if settings.prompt_snapshot_enabled else None
+    )
+    return LangfusePromptStore(
+        client,
+        snapshot_path=snapshot_path,
+        cache_ttl_seconds=settings.prompt_cache_ttl_seconds,
     )
 
 
@@ -148,6 +188,7 @@ def run_session(
     *,
     orchestration: Orchestration,
     role_models: Mapping[str, BaseChatModel],
+    prompt_store: PromptStore,
     checkpointer: BaseCheckpointSaver[Any] | None,
     read_question: Callable[[], str | None],
     write: Callable[[str], None],
@@ -162,6 +203,9 @@ def run_session(
     orchestration : {"supervisor", "graph"}
     role_models : Mapping of str to BaseChatModel
         Built by `build_role_models`; injectable so a test can pass fakes.
+    prompt_store : PromptStore
+        Built by `build_prompt_store`; injectable so a test can pass
+        `prompt_store.SnapshotPromptStore` instead (hl12 stage 1).
     checkpointer : BaseCheckpointSaver, optional
         Typically a fresh `MemorySaver()` per session.
     read_question : Callable[[], str | None]
@@ -184,7 +228,11 @@ def run_session(
     """
     tid = thread_id or str(uuid4())
     graph = build_graph(
-        settings, orchestration, role_models=role_models, checkpointer=checkpointer
+        settings,
+        orchestration,
+        role_models=role_models,
+        prompt_store=prompt_store,
+        checkpointer=checkpointer,
     )
     config: RunnableConfig = {
         "configurable": {"thread_id": tid},
@@ -253,6 +301,7 @@ def main(argv: Sequence[str] = ()) -> None:
     args = build_arg_parser().parse_args(argv or None)
     settings = load_settings()
     role_models = build_role_models(settings)
+    prompt_store = build_prompt_store(settings)
     orchestration = cast(Orchestration, args.orchestration)
 
     resolve_decisions = (
@@ -271,6 +320,7 @@ def main(argv: Sequence[str] = ()) -> None:
             settings,
             orchestration=orchestration,
             role_models=role_models,
+            prompt_store=prompt_store,
             checkpointer=MemorySaver(),
             read_question=_stdin_reader(),
             write=print,

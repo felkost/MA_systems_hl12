@@ -24,11 +24,22 @@ the list, `agent_middleware(..., tool_exit_behavior="end")` next, then the
 two Supervisor-only middlewares from stage 3, then this stage's revision cap
 and verdict guard. See `middleware.agent_middleware`'s own docstring for why
 `"end"` and this order, both measured rather than assumed.
+
+**hl12 stage 1 -- `prompt_store` is a required keyword-only parameter, not
+optional.** All five of this module's prompts (four agent prompts plus the
+Critic's verification retry text) are resolved once here, before
+`create_agent`, through the caller-supplied `PromptStore` -- never built
+implicitly from `Settings`, which would need a real network call or valid
+Langfuse credentials inside every offline gate test that constructs a
+Supervisor (`docs/specs/stage-1.md`, "New audit finding" -- 19 call sites
+across `tests/test_supervisor.py`/`tests/test_orchestrator.py`, none of
+which should need network access).
 """
 
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from datetime import date
 from typing import Annotated, Any, NotRequired, cast
 from uuid import uuid4
 
@@ -66,7 +77,8 @@ from middleware import (
     SaveReportVerdictGuardMiddleware,
     agent_middleware,
 )
-from prompts import build_supervisor_prompt
+from prompt_store import PromptStore
+from prompts import PROMPT_NAMES
 from schemas import (
     RESEARCH_INPUT_TEMPLATE,
     CritiqueResult,
@@ -240,6 +252,28 @@ def _make_critique_tool(
     return critique
 
 
+def _resolve_prompts(prompt_store: PromptStore, *, label: str) -> dict[str, str]:
+    """Fetch all five prompts this module needs, once, keyed by role.
+
+    `today` is compiled into the Critic's prompt here, not inside
+    `agents/critic.py` (hl12 stage 1) -- the factory no longer owns the
+    system clock.
+    """
+    return {
+        "planner": prompt_store.get(PROMPT_NAMES["planner"], label=label),
+        "researcher": prompt_store.get(PROMPT_NAMES["researcher"], label=label),
+        "critic": prompt_store.get(
+            PROMPT_NAMES["critic"],
+            label=label,
+            variables={"today": date.today().isoformat()},
+        ),
+        "supervisor": prompt_store.get(PROMPT_NAMES["supervisor"], label=label),
+        "critic_verification": prompt_store.get(
+            PROMPT_NAMES["critic_verification"], label=label
+        ),
+    }
+
+
 def _supervisor_middleware(settings: Settings) -> list[Any]:
     """The Supervisor's own middleware list, factored out of
     `create_supervisor` so its assembled order (D4.15) is testable without
@@ -275,6 +309,7 @@ def create_supervisor(
     settings: Settings,
     *,
     role_models: Mapping[str, BaseChatModel],
+    prompt_store: PromptStore,
     base_tools: Sequence[BaseTool] | None = None,
     checkpointer: BaseCheckpointSaver[Any] | None = None,
 ) -> CompiledStateGraph[
@@ -293,6 +328,13 @@ def create_supervisor(
         can still name the `models`/`tools` modules (D4.19's assembly reads
         `tools.SUPERVISOR_TOOLS`, which a parameter named `tools` would
         shadow).
+    prompt_store : PromptStore
+        Resolves all five prompts this graph needs (hl12 stage 1) -- built
+        by the caller (`main.py`, via `prompt_store.LangfusePromptStore`),
+        a `prompt_store.SnapshotPromptStore` in a test. Required, not
+        optional: an implicit default built from `settings` here would need
+        real Langfuse credentials inside every offline gate test that
+        constructs a Supervisor (`docs/specs/stage-1.md`).
     base_tools : Sequence of BaseTool, optional
         The Supervisor's own non-delegation tools. Defaults to
         `tools.SUPERVISOR_TOOLS` (`[save_report]`); overridable so a test
@@ -313,6 +355,8 @@ def create_supervisor(
     if base_tools is None:
         base_tools = tools.SUPERVISOR_TOOLS
 
+    prompts = _resolve_prompts(prompt_store, label=settings.langfuse_prompt_label)
+
     planner_graph = create_planner_agent(
         settings,
         tools.PLANNER_TOOLS,
@@ -320,6 +364,7 @@ def create_supervisor(
         middleware=agent_middleware(
             tool_call_limit=PLANNER_TOOL_CALL_LIMIT, role="planner"
         ),
+        system_prompt=prompts["planner"],
     )
     research_graph = create_research_agent(
         settings,
@@ -332,6 +377,7 @@ def create_supervisor(
             ReadUrlCapMiddleware(settings.max_read_url_per_search),
             UnsupportedClaimMiddleware(),
         ],
+        system_prompt=prompts["researcher"],
     )
     critic_graph = create_critic_agent(
         settings,
@@ -341,8 +387,9 @@ def create_supervisor(
             *agent_middleware(
                 tool_call_limit=settings.critic_max_tool_calls, role="critic"
             ),
-            CriticVerificationMiddleware(),
+            CriticVerificationMiddleware(prompts["critic_verification"]),
         ],
+        system_prompt=prompts["critic"],
     )
 
     supervisor_tools: list[BaseTool] = [
@@ -355,7 +402,7 @@ def create_supervisor(
     graph = create_agent(
         model=role_models["supervisor"],
         tools=supervisor_tools,
-        system_prompt=build_supervisor_prompt(settings.supervisor_prompt_version),
+        system_prompt=prompts["supervisor"],
         middleware=_supervisor_middleware(settings),
         state_schema=SupervisorState,
         checkpointer=checkpointer,

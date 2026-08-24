@@ -68,7 +68,6 @@ from langgraph.types import Command
 from opentelemetry import trace
 
 from models import compute_cost
-from prompts import CRITIC_VERIFICATION_INSTRUCTION
 
 _VERIFICATION_TOOLS = frozenset({"web_search", "read_url", "knowledge_search"})
 
@@ -199,9 +198,9 @@ class CriticVerificationMiddleware(
     `response_format=CritiqueResult` lets the model end the turn with a
     verdict and no verification call at all. If none of the three research
     tools ran earlier this turn, this middleware re-runs the model call once
-    with `CRITIC_VERIFICATION_INSTRUCTION` appended. The retried response is
-    returned as-is, whatever it contains -- one-shot, so a model that skips
-    verification twice in a row cannot make this middleware loop.
+    with `self.instruction` appended as a `HumanMessage`. The retried
+    response is returned as-is, whatever it contains -- one-shot, so a model
+    that skips verification twice in a row cannot make this middleware loop.
 
     Defines **both** `wrap_model_call` and `awrap_model_call` (D3.1b).
 
@@ -211,12 +210,26 @@ class CriticVerificationMiddleware(
     first call still gets its own `model.<role>` span (stage 9e, phase 3
     R.2 finding: `TracingMiddleware`'s own span otherwise sees only the
     retried response).
+
+    `instruction` -- the retry text appended as a `HumanMessage`, required
+    with no default (hl12 stage 1, `docs/specs/stage-1.md`): this class
+    used to import a module-level `CRITIC_VERIFICATION_INSTRUCTION` from
+    `prompts.py` directly; that constant is deleted along with every other
+    hardcoded prompt string, so the caller now resolves it through
+    `prompt_store.PromptStore.get(prompts.PROMPT_NAMES["critic_verification"],
+    label=...)` and passes the text in. A default here would silently
+    reintroduce the exact hardcoded string this stage removes.
     """
 
     def __init__(
-        self, min_verification_calls: int = 1, *, role: str = "critic"
+        self,
+        instruction: str,
+        min_verification_calls: int = 1,
+        *,
+        role: str = "critic",
     ) -> None:
         super().__init__()
+        self.instruction = instruction
         self.min_verification_calls = min_verification_calls
         self.role = role
 
@@ -244,8 +257,12 @@ class CriticVerificationMiddleware(
         record_superseded_model_call(self.role, request, response)
         return await handler(self._retry_request(request))
 
-    @staticmethod
-    def _retry_request(request: ModelRequest[ContextT]) -> ModelRequest[ContextT]:
+    def _retry_request(self, request: ModelRequest[ContextT]) -> ModelRequest[ContextT]:
+        # No longer a @staticmethod (hl12 stage 1): it now reads
+        # self.instruction, the caller-injected retry text, instead of the
+        # module-level CRITIC_VERIFICATION_INSTRUCTION constant this stage
+        # deletes. The retry mechanics below are otherwise unchanged.
+        #
         # The retry forces a tool call at the API level (ChatOpenAI
         # translates "any" into "required"). Enforcement must ride
         # `model_settings`, not the `tool_choice` field, for the
@@ -257,7 +274,7 @@ class CriticVerificationMiddleware(
         # `tool_choice` would raise a duplicate-kwarg TypeError instead.
         retry_messages = [
             *request.messages,
-            HumanMessage(content=CRITIC_VERIFICATION_INSTRUCTION),
+            HumanMessage(content=self.instruction),
         ]
         if isinstance(request.response_format, ProviderStrategy):
             return request.override(

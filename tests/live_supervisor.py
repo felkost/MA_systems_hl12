@@ -97,6 +97,7 @@ def run_supervisor_live(agent_input: str, *, settings: Settings) -> SupervisorLi
         settings,
         orchestration="supervisor",
         role_models=main.build_role_models(settings),
+        prompt_store=main.build_prompt_store(settings),
         checkpointer=checkpointer,
         read_question=lambda: next(questions),
         write=lambda _: None,

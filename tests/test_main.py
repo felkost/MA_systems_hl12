@@ -18,7 +18,7 @@ from pydantic import SecretStr
 import main
 import observability
 from config import Settings
-from tests.fakes import FakeToolCallingModel
+from tests.fakes import FakeToolCallingModel, fake_prompt_store
 
 _PLAN_ARGS = {
     "goal": "g",
@@ -163,6 +163,7 @@ def test_supervisor_path_reaches_interrupt_with_zero_network_and_resumes(
         _settings(max_revisions=1),
         orchestration="supervisor",
         role_models=role_models,
+        prompt_store=fake_prompt_store(),
         checkpointer=MemorySaver(),
         read_question=lambda: next(questions),
         write=outputs.append,
@@ -194,6 +195,7 @@ def test_graph_path_reaches_interrupt_with_zero_network_and_resumes(
         _settings(max_revisions=1),
         orchestration="graph",
         role_models=role_models,
+        prompt_store=fake_prompt_store(),
         checkpointer=MemorySaver(),
         read_question=lambda: next(questions),
         write=outputs.append,
@@ -225,6 +227,7 @@ def test_reject_never_executes_save_report(monkeypatch: Any) -> None:
         _settings(max_revisions=1),
         orchestration="supervisor",
         role_models=role_models,
+        prompt_store=fake_prompt_store(),
         checkpointer=MemorySaver(),
         read_question=lambda: next(questions),
         write=outputs.append,
@@ -257,6 +260,7 @@ def test_one_thread_id_reused_across_turns(monkeypatch: Any) -> None:
         _settings(max_revisions=1),
         orchestration="graph",
         role_models=role_models,
+        prompt_store=fake_prompt_store(),
         checkpointer=saver,
         read_question=lambda: next(questions),
         write=lambda _: None,
@@ -298,10 +302,18 @@ def test_build_graph_selects_supervisor_or_orchestrator(monkeypatch: Any) -> Non
     role_models = _orchestrator_role_models()
 
     supervisor_graph = main.build_graph(
-        _settings(), "supervisor", role_models=role_models, checkpointer=None
+        _settings(),
+        "supervisor",
+        role_models=role_models,
+        prompt_store=fake_prompt_store(),
+        checkpointer=None,
     )
     graph_graph = main.build_graph(
-        _settings(), "graph", role_models=role_models, checkpointer=None
+        _settings(),
+        "graph",
+        role_models=role_models,
+        prompt_store=fake_prompt_store(),
+        checkpointer=None,
     )
     assert supervisor_graph is not graph_graph
 
@@ -342,6 +354,7 @@ def test_run_session_opens_one_repl_question_span_per_turn_with_a_fresh_run_id(
             _settings(max_revisions=1),
             orchestration="supervisor",
             role_models=role_models,
+            prompt_store=fake_prompt_store(),
             checkpointer=MemorySaver(),
             read_question=lambda: next(questions),
             write=lambda _: None,

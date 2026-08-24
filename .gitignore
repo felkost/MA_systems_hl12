@@ -33,6 +33,13 @@ docs/
 # index would go stale against data/ with no signal that it had.
 index/
 
+# Local prompt-text fallback (stage 1, prompt_store.LangfusePromptStore).
+# Never a source of truth: a stale, tracked snapshot could silently become
+# the prompt every clone actually runs if a Langfuse fetch ever failed --
+# it exists only so *this* checkout survives one bad fetch. The real source
+# of truth is Langfuse itself; see docs/prompt-seeds-hl12.md to reseed it.
+prompts/
+
 # Runtime logs, evaluation run artefacts and crash-recovery checkpoints.
 # Post-mortem material, not project history.
 logs/

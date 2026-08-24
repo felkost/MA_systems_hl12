@@ -100,9 +100,9 @@ def test_critic_verification_middleware_retries_once_when_no_tool_was_called() -
         calls += 1
         return ModelResponse(result=[AIMessage(content="no verification call")])
 
-    result = middleware.CriticVerificationMiddleware().wrap_model_call(
-        _model_request(), handler
-    )
+    result = middleware.CriticVerificationMiddleware(
+        "Verify at least one claim."
+    ).wrap_model_call(_model_request(), handler)
     assert calls == 2
     assert result.result[0].content == "no verification call"
 
@@ -124,7 +124,9 @@ def test_critic_verification_middleware_does_not_retry_when_a_tool_was_called() 
             ]
         )
 
-    middleware.CriticVerificationMiddleware().wrap_model_call(_model_request(), handler)
+    middleware.CriticVerificationMiddleware(
+        "Verify at least one claim."
+    ).wrap_model_call(_model_request(), handler)
     assert calls == 1
 
 
@@ -141,7 +143,9 @@ def test_critic_verification_middleware_skips_retry_if_already_verified() -> Non
         return ModelResponse(result=[AIMessage(content="verdict, no new tool call")])
 
     request = _model_request(state={"messages": [HumanMessage("q"), prior_ai]})
-    middleware.CriticVerificationMiddleware().wrap_model_call(request, handler)
+    middleware.CriticVerificationMiddleware(
+        "Verify at least one claim."
+    ).wrap_model_call(request, handler)
     assert calls == 1
 
 
@@ -301,7 +305,7 @@ def test_critic_verification_retry_does_not_lose_the_first_calls_token_usage() -
         request = _model_request(
             model=SimpleNamespace(model_name="openai/gpt-4.1-mini"),
         )
-        critic = middleware.CriticVerificationMiddleware()
+        critic = middleware.CriticVerificationMiddleware("Verify at least one claim.")
 
         def traced_handler(r: ModelRequest[Any]) -> ModelResponse[Any]:
             return critic.wrap_model_call(r, inner_handler)

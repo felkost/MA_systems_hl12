@@ -10,6 +10,14 @@ started: `model`, `tools` and `middleware` all arrive as parameters, and
 none of the three is imported from `models.py`/`tools.py`/`middleware.py` --
 `agents.*` is `DOMAIN` and all three are `INFRA`
 (`docs/specs/stage-3.md`, D3.2).
+
+`system_prompt` joined the injected parameters at hl12 stage 1
+(`docs/specs/stage-1.md`): this factory no longer imports
+`prompts.build_planner_prompt` -- `prompts.py` holds no prompt text at all
+now, only a name/label registry (`prompts.PROMPT_NAMES`) that
+`supervisor.py`/`orchestrator.py` resolve through `prompt_store.PromptStore`
+before calling this factory. Same D3.2 rule as `model`/`tools`/`middleware`,
+just one more infra-sourced value the caller supplies.
 """
 
 from __future__ import annotations
@@ -31,7 +39,6 @@ from langgraph.graph.state import CompiledStateGraph
 
 from agents._allowlist import assert_allowlist
 from config import Settings
-from prompts import build_planner_prompt
 from schemas import ResearchPlan
 
 PLANNER_ALLOWLIST: tuple[str, ...] = ("web_search", "knowledge_search")
@@ -56,6 +63,7 @@ def create_planner_agent(
     *,
     model: BaseChatModel,
     middleware: Sequence[AgentMiddleware[Any, Any, Any]],
+    system_prompt: str,
 ) -> CompiledStateGraph[
     AgentState[ResearchPlan], None, InputAgentState, OutputAgentState[ResearchPlan]
 ]:
@@ -74,6 +82,11 @@ def create_planner_agent(
         The full stack, e.g. `middleware.agent_middleware(tool_call_limit=
         PLANNER_TOOL_CALL_LIMIT)`. This factory never assembles its own --
         that would import `middleware.py`, which is infra.
+    system_prompt : str
+        Resolved by the caller via `prompt_store.PromptStore.get(
+        prompts.PROMPT_NAMES["planner"], label=...)` (stage 1) -- this
+        factory never imports `prompts.py` or `prompt_store.py` itself
+        (D3.2).
 
     Returns
     -------
@@ -87,7 +100,7 @@ def create_planner_agent(
     graph = create_agent(
         model=model,
         tools=list(tools),
-        system_prompt=build_planner_prompt(settings.planner_prompt_version),
+        system_prompt=system_prompt,
         response_format=PLANNER_RESPONSE_FORMAT,
         middleware=list(middleware),
     )

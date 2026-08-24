@@ -77,18 +77,21 @@ class Settings(BaseSettings):
     judge_model_name: str | None = None
     temperature: float | None = Field(default=None, ge=0.0, le=2.0)
 
-    # -- Prompt versions (prompts.py, stage 3). `critic_prompt_version`
-    # defaults to "c2", the coupled verdict/booleans version -- matching
-    # hl8's own default and what docs/task-hl11.md's Critique Quality GEval
-    # measures against (docs/specs/stage-3.md, D3.4). `researcher_prompt_version`
-    # defaults to "r2": "r1" filled gaps its own retrieved sources did not
-    # support with plausible-sounding invented facts; "r2" adds an explicit
-    # instruction against that, and "r1" stays registered for comparison.
-    planner_prompt_version: str = "p2"
-    researcher_prompt_version: str = "r2"
-    critic_prompt_version: str = "c2"
-    supervisor_prompt_version: str = "s2"
-    composer_prompt_version: str = "w1"
+    # -- Prompt Management (prompt_store.py, stage 1). All six agent/
+    # middleware prompts are fetched from Langfuse by name (`prompts.
+    # PROMPT_NAMES`) and this one label -- no per-agent version field, since
+    # a Langfuse label replaces what a `Settings.*_prompt_version` field used
+    # to select (`docs/specs/stage-1.md`).
+    langfuse_prompt_label: str = "production"
+    # The local snapshot (`paths.prompt_snapshot_path()`) is what
+    # `prompt_store.LangfusePromptStore` falls back to when a Langfuse fetch
+    # fails; a project that never wants that fallback (e.g. a test asserting
+    # the raise path) sets this false.
+    prompt_snapshot_enabled: bool = True
+    # Passed straight through to `Langfuse.get_prompt`'s own
+    # `cache_ttl_seconds` -- the SDK's own default is 60s; this project
+    # widens it slightly since a prompt changing mid-session is rare.
+    prompt_cache_ttl_seconds: int = Field(default=300, ge=0, le=3600)
 
     # -- Supervisor / revision loop
     max_revisions: int = Field(default=2, ge=1, le=3)

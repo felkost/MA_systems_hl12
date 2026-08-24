@@ -17,7 +17,7 @@ from pydantic import SecretStr
 
 from config import Settings
 from orchestrator import create_orchestrator_graph
-from tests.fakes import FakeToolCallingModel
+from tests.fakes import FakeToolCallingModel, fake_prompt_store
 
 _PLAN_ARGS = {
     "goal": "g",
@@ -119,7 +119,10 @@ def test_out_of_scope_request_never_reaches_research_or_saves() -> None:
     fake_save, calls = _fake_save_report()
     role_models = _role_models(plan_args=_OUT_OF_SCOPE_PLAN_ARGS)
     graph = create_orchestrator_graph(
-        _settings(), role_models=role_models, base_tools=[fake_save]
+        _settings(),
+        role_models=role_models,
+        prompt_store=fake_prompt_store(),
+        base_tools=[fake_save],
     )
     result = graph.invoke({"messages": [HumanMessage(content="how do I make borscht")]})
     assert result.get("__interrupt__") is None
@@ -131,7 +134,10 @@ def test_in_scope_request_reaches_the_hitl_gate() -> None:
     fake_save, calls = _fake_save_report()
     role_models = _role_models()
     graph = create_orchestrator_graph(
-        _settings(), role_models=role_models, base_tools=[fake_save]
+        _settings(),
+        role_models=role_models,
+        prompt_store=fake_prompt_store(),
+        base_tools=[fake_save],
     )
     result = graph.invoke({"messages": [HumanMessage(content="q")]})
     assert result.get("__interrupt__")
@@ -145,7 +151,10 @@ def test_composer_produces_a_filename_and_content() -> None:
     fake_save, _ = _fake_save_report()
     role_models = _role_models()
     graph = create_orchestrator_graph(
-        _settings(), role_models=role_models, base_tools=[fake_save]
+        _settings(),
+        role_models=role_models,
+        prompt_store=fake_prompt_store(),
+        base_tools=[fake_save],
     )
     result = graph.invoke({"messages": [HumanMessage(content="q")]})
     draft = result["report_draft"]
@@ -162,6 +171,7 @@ def test_save_executes_exactly_once_after_approve() -> None:
     graph = create_orchestrator_graph(
         _settings(),
         role_models=role_models,
+        prompt_store=fake_prompt_store(),
         base_tools=[fake_save],
         checkpointer=MemorySaver(),
     )
@@ -177,6 +187,7 @@ def test_save_never_executes_on_reject() -> None:
     graph = create_orchestrator_graph(
         _settings(),
         role_models=role_models,
+        prompt_store=fake_prompt_store(),
         base_tools=[fake_save],
         checkpointer=MemorySaver(),
     )
@@ -194,7 +205,10 @@ def test_hitl_gate_uses_the_same_allowed_decisions_as_the_supervisor_path() -> N
     fake_save, _ = _fake_save_report()
     role_models = _role_models()
     graph = create_orchestrator_graph(
-        _settings(), role_models=role_models, base_tools=[fake_save]
+        _settings(),
+        role_models=role_models,
+        prompt_store=fake_prompt_store(),
+        base_tools=[fake_save],
     )
     result = graph.invoke({"messages": [HumanMessage(content="q")]})
     interrupt_value = result["__interrupt__"][0].value
@@ -211,7 +225,10 @@ def test_revise_under_the_cap_loops_back_to_research() -> None:
     fake_save, calls = _fake_save_report()
     role_models = _role_models(critic_responses=_critic_responses("A", None))
     graph = create_orchestrator_graph(
-        _settings(max_revisions=1), role_models=role_models, base_tools=[fake_save]
+        _settings(max_revisions=1),
+        role_models=role_models,
+        prompt_store=fake_prompt_store(),
+        base_tools=[fake_save],
     )
     result = graph.invoke({"messages": [HumanMessage(content="q")]})
     assert result["revision_round"] == 1
@@ -227,7 +244,10 @@ def test_revise_at_the_cap_still_reaches_the_composer() -> None:
     fake_save, _ = _fake_save_report()
     role_models = _role_models(critic_responses=_critic_responses("A", "B"))
     graph = create_orchestrator_graph(
-        _settings(max_revisions=1), role_models=role_models, base_tools=[fake_save]
+        _settings(max_revisions=1),
+        role_models=role_models,
+        prompt_store=fake_prompt_store(),
+        base_tools=[fake_save],
     )
     result = graph.invoke({"messages": [HumanMessage(content="q")]})
     assert result["revision_round"] == 2  # both REVISE calls counted
@@ -247,6 +267,7 @@ def test_revision_cap_boundary_matches_the_supervisor_path_arithmetic() -> None:
         graph = create_orchestrator_graph(
             _settings(max_revisions=max_revisions),
             role_models=role_models,
+            prompt_store=fake_prompt_store(),
             base_tools=[fake_save],
         )
         result = graph.invoke({"messages": [HumanMessage(content="q")]})
@@ -262,7 +283,10 @@ def test_revision_round_starts_at_zero_and_increments_only_on_revise() -> None:
     fake_save, _ = _fake_save_report()
     role_models = _role_models()  # single APPROVE
     graph = create_orchestrator_graph(
-        _settings(max_revisions=2), role_models=role_models, base_tools=[fake_save]
+        _settings(max_revisions=2),
+        role_models=role_models,
+        prompt_store=fake_prompt_store(),
+        base_tools=[fake_save],
     )
     result = graph.invoke({"messages": [HumanMessage(content="q")]})
     assert result["revision_round"] == 0
@@ -288,7 +312,10 @@ def test_original_request_is_forwarded_to_the_researcher() -> None:
         responses=[AIMessage(content="findings")]
     )
     graph = create_orchestrator_graph(
-        _settings(), role_models=role_models, base_tools=[fake_save]
+        _settings(),
+        role_models=role_models,
+        prompt_store=fake_prompt_store(),
+        base_tools=[fake_save],
     )
     graph.invoke({"messages": [HumanMessage(content="What is the capital of France?")]})
     assert "Original request: What is the capital of France?" in seen["researcher"]

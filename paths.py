@@ -100,6 +100,22 @@ def span_dump_path(run_id: str, runs_dir: str | Path = "runs") -> Path:
     return run_dir(run_id, runs_dir) / "spans.json"
 
 
+def prompt_snapshot_path(prompts_dir: str | Path = "prompts") -> Path:
+    """Locate the local prompt-text fallback `prompt_store.LangfusePromptStore`
+    writes and reads (stage 1, `docs/specs/stage-1.md`), creating its parent
+    directory if missing.
+
+    Parameters
+    ----------
+    prompts_dir : str or Path, default "prompts"
+        Explicit so a test can redirect it under `tmp_path`, the same shape
+        `run_dir`'s `runs_dir` already uses.
+    """
+    result = resolve(prompts_dir)
+    result.mkdir(parents=True, exist_ok=True)
+    return result / "snapshot.json"
+
+
 def checkpoint_path(db: str | Path) -> Path:
     """Locate the checkpoint database, creating its parent directory if
     missing.

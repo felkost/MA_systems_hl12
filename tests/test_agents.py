@@ -54,7 +54,11 @@ def test_planner_builds_and_returns_a_structured_plan() -> None:
     }
     model = _fake_model(AIMessage(content=json.dumps(plan_args)))
     graph = create_planner_agent(
-        _settings(), tools.PLANNER_TOOLS, model=model, middleware=[]
+        _settings(),
+        tools.PLANNER_TOOLS,
+        model=model,
+        middleware=[],
+        system_prompt="Test system prompt.",
     )
     result = graph.invoke({"messages": [HumanMessage("Compare A and B")]})
     structured = result["structured_response"]
@@ -65,7 +69,11 @@ def test_planner_builds_and_returns_a_structured_plan() -> None:
 def test_research_builds_and_returns_free_text() -> None:
     model = _fake_model(AIMessage(content="Findings: A beats B on cost."))
     graph = create_research_agent(
-        _settings(), tools.RESEARCHER_TOOLS, model=model, middleware=[]
+        _settings(),
+        tools.RESEARCHER_TOOLS,
+        model=model,
+        middleware=[],
+        system_prompt="Test system prompt.",
     )
     result = graph.invoke({"messages": [HumanMessage("Execute the plan")]})
     assert "Findings" in result["messages"][-1].content
@@ -83,7 +91,11 @@ def test_critic_builds_and_returns_a_structured_critique() -> None:
     }
     model = _fake_model(AIMessage(content=json.dumps(critique_args)))
     graph = create_critic_agent(
-        _settings(), tools.CRITIC_TOOLS, model=model, middleware=[]
+        _settings(),
+        tools.CRITIC_TOOLS,
+        model=model,
+        middleware=[],
+        system_prompt="Test system prompt.",
     )
     result = graph.invoke({"messages": [HumanMessage("Verify these findings")]})
     structured = result["structured_response"]
@@ -98,7 +110,11 @@ def test_planner_factory_refuses_a_tool_outside_its_allowlist() -> None:
     model = _fake_model(AIMessage(content="", tool_calls=[]))
     with pytest.raises(ToolAllowlistError):
         create_planner_agent(
-            _settings(), tools.RESEARCHER_TOOLS, model=model, middleware=[]
+            _settings(),
+            tools.RESEARCHER_TOOLS,
+            model=model,
+            middleware=[],
+            system_prompt="Test system prompt.",
         )
 
 
@@ -106,7 +122,11 @@ def test_research_factory_refuses_a_missing_expected_tool() -> None:
     model = _fake_model(AIMessage(content="", tool_calls=[]))
     with pytest.raises(ToolAllowlistError):
         create_research_agent(
-            _settings(), tools.PLANNER_TOOLS, model=model, middleware=[]
+            _settings(),
+            tools.PLANNER_TOOLS,
+            model=model,
+            middleware=[],
+            system_prompt="Test system prompt.",
         )
 
 
@@ -137,7 +157,11 @@ def test_critic_allowlist_matches_critic_tools() -> None:
 def test_planner_graph_has_no_read_url() -> None:
     model = _fake_model(AIMessage(content="", tool_calls=[]))
     graph = create_planner_agent(
-        _settings(), tools.PLANNER_TOOLS, model=model, middleware=[]
+        _settings(),
+        tools.PLANNER_TOOLS,
+        model=model,
+        middleware=[],
+        system_prompt="Test system prompt.",
     )
     tools_node = cast(ToolNode, graph.nodes["tools"].bound)
     assert set(tools_node.tools_by_name.keys()) == {"web_search", "knowledge_search"}
@@ -159,7 +183,11 @@ def test_agent_source_never_passes_a_checkpointer(path: str) -> None:
 def test_planner_graph_has_no_checkpointer() -> None:
     model = _fake_model(AIMessage(content="", tool_calls=[]))
     graph = create_planner_agent(
-        _settings(), tools.PLANNER_TOOLS, model=model, middleware=[]
+        _settings(),
+        tools.PLANNER_TOOLS,
+        model=model,
+        middleware=[],
+        system_prompt="Test system prompt.",
     )
     assert graph.checkpointer is None
 
@@ -167,7 +195,11 @@ def test_planner_graph_has_no_checkpointer() -> None:
 def test_research_graph_has_no_checkpointer() -> None:
     model = _fake_model(AIMessage(content="", tool_calls=[]))
     graph = create_research_agent(
-        _settings(), tools.RESEARCHER_TOOLS, model=model, middleware=[]
+        _settings(),
+        tools.RESEARCHER_TOOLS,
+        model=model,
+        middleware=[],
+        system_prompt="Test system prompt.",
     )
     assert graph.checkpointer is None
 
@@ -175,7 +207,11 @@ def test_research_graph_has_no_checkpointer() -> None:
 def test_critic_graph_has_no_checkpointer() -> None:
     model = _fake_model(AIMessage(content="", tool_calls=[]))
     graph = create_critic_agent(
-        _settings(), tools.CRITIC_TOOLS, model=model, middleware=[]
+        _settings(),
+        tools.CRITIC_TOOLS,
+        model=model,
+        middleware=[],
+        system_prompt="Test system prompt.",
     )
     assert graph.checkpointer is None
 
@@ -186,7 +222,11 @@ def test_critic_graph_has_no_checkpointer() -> None:
 def test_planner_graph_is_tagged_with_its_own_agent_name() -> None:
     model = _fake_model(AIMessage(content="", tool_calls=[]))
     graph = create_planner_agent(
-        _settings(), tools.PLANNER_TOOLS, model=model, middleware=[]
+        _settings(),
+        tools.PLANNER_TOOLS,
+        model=model,
+        middleware=[],
+        system_prompt="Test system prompt.",
     )
     assert graph.config is not None
     assert graph.config.get("metadata", {}).get("agent") == "planner"

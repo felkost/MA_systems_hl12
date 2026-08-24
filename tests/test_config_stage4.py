@@ -1,5 +1,10 @@
-"""Stage-4 spec additions to `Settings`: `composer_prompt_version` and the
-derived `resolved_supervisor_max_tool_calls` (D4.4, D4.13).
+"""Stage-4 spec addition to `Settings`: the derived
+`resolved_supervisor_max_tool_calls` (D4.4, D4.13).
+
+`composer_prompt_version` was this file's other stage-4 addition; deleted at
+hl12 stage 1 along with every `Settings.*_prompt_version` field
+(`docs/specs/stage-1.md`) -- a Langfuse label replaces what a version field
+used to select.
 """
 
 from __future__ import annotations
@@ -13,10 +18,6 @@ from config import Settings
 
 def _settings(**overrides: Any) -> Settings:
     return Settings(openrouter_api_key=SecretStr("test-key"), **overrides)
-
-
-def test_composer_prompt_defaults_to_w1() -> None:
-    assert _settings().composer_prompt_version == "w1"
 
 
 def test_supervisor_max_tool_calls_defaults_to_none() -> None:

@@ -18,14 +18,17 @@ knowledge_search" unless this is done deliberately.
 from __future__ import annotations
 
 from contextlib import contextmanager
+from datetime import date
 from dataclasses import dataclass
 from typing import Any, Iterator, cast
 from uuid import uuid4
 
 from langchain_core.messages import HumanMessage
+from langfuse import Langfuse
 from opentelemetry import baggage, context, trace
 
 import observability
+import paths
 from agents.critic import create_critic_agent
 from agents.planner import PLANNER_TOOL_CALL_LIMIT, create_planner_agent
 from agents.research import create_research_agent
@@ -37,8 +40,35 @@ from middleware import (
     agent_middleware,
 )
 from models import build_chat_model
+from prompt_store import LangfusePromptStore, PromptStore
+from prompts import PROMPT_NAMES
 from schemas import CritiqueResult, ResearchPlan, render_critique, render_plan
 from tools import CRITIC_TOOLS, PLANNER_TOOLS, RESEARCHER_TOOLS
+
+
+def _live_prompt_store(settings: Settings) -> PromptStore:
+    """A real `LangfusePromptStore` for the eval tier's own live runs (hl12
+    stage 1) -- not shared with `main.build_prompt_store` since `tests/` is
+    exempt from the layer walk but importing `main.py` (interface) into a
+    test helper would still read oddly; this is the same few lines, kept
+    local to this module instead.
+    """
+    assert settings.langfuse_public_key is not None
+    assert settings.langfuse_secret_key is not None
+    client = Langfuse(
+        public_key=settings.langfuse_public_key.get_secret_value(),
+        secret_key=settings.langfuse_secret_key.get_secret_value(),
+        host=settings.langfuse_base_url,
+    )
+    snapshot_path = (
+        paths.prompt_snapshot_path() if settings.prompt_snapshot_enabled else None
+    )
+    return LangfusePromptStore(
+        client,
+        snapshot_path=snapshot_path,
+        cache_ttl_seconds=settings.prompt_cache_ttl_seconds,
+    )
+
 
 AGENT_SPAN_NAME: dict[str, str] = {
     "planner": "agent.planner",
@@ -112,6 +142,8 @@ def run_agent_live(role: str, agent_input: str, *, settings: Settings) -> LiveRu
     LiveRun
     """
     model = build_chat_model(settings, role)
+    prompt_store = _live_prompt_store(settings)
+    label = settings.langfuse_prompt_label
     run_id = str(uuid4())
     plan: ResearchPlan | None = None
     token = context.attach(baggage.set_baggage("run_id", run_id))
@@ -127,6 +159,9 @@ def run_agent_live(role: str, agent_input: str, *, settings: Settings) -> LiveRu
                     model=model,
                     middleware=agent_middleware(
                         tool_call_limit=PLANNER_TOOL_CALL_LIMIT, role="planner"
+                    ),
+                    system_prompt=prompt_store.get(
+                        PROMPT_NAMES["planner"], label=label
                     ),
                 )
                 result = graph.invoke({"messages": [HumanMessage(content=agent_input)]})
@@ -145,6 +180,9 @@ def run_agent_live(role: str, agent_input: str, *, settings: Settings) -> LiveRu
                         ),
                         ReadUrlCapMiddleware(settings.max_read_url_per_search),
                     ],
+                    system_prompt=prompt_store.get(
+                        PROMPT_NAMES["researcher"], label=label
+                    ),
                 )
                 result = graph.invoke({"messages": [HumanMessage(content=agent_input)]})
                 output = str(result["messages"][-1].content)
@@ -158,8 +196,17 @@ def run_agent_live(role: str, agent_input: str, *, settings: Settings) -> LiveRu
                             tool_call_limit=settings.critic_max_tool_calls,
                             role="critic",
                         ),
-                        CriticVerificationMiddleware(),
+                        CriticVerificationMiddleware(
+                            prompt_store.get(
+                                PROMPT_NAMES["critic_verification"], label=label
+                            )
+                        ),
                     ],
+                    system_prompt=prompt_store.get(
+                        PROMPT_NAMES["critic"],
+                        label=label,
+                        variables={"today": date.today().isoformat()},
+                    ),
                 )
                 result = graph.invoke({"messages": [HumanMessage(content=agent_input)]})
                 critique = cast(CritiqueResult, result["structured_response"])

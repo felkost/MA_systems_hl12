@@ -8,7 +8,7 @@ writes to disk. Stateless per invocation: no checkpointer (D3.6), one human
 message in, one findings message out.
 
 Ported from `MA_systems_hl10`; see `agents/planner.py` for the shared D3.2
-dependency-inversion rationale.
+dependency-inversion rationale, including `system_prompt`'s stage-1 addition.
 """
 
 from __future__ import annotations
@@ -29,7 +29,6 @@ from langgraph.graph.state import CompiledStateGraph
 
 from agents._allowlist import assert_allowlist
 from config import Settings
-from prompts import build_researcher_prompt
 
 RESEARCHER_ALLOWLIST: tuple[str, ...] = ("web_search", "read_url", "knowledge_search")
 
@@ -40,6 +39,7 @@ def create_research_agent(
     *,
     model: BaseChatModel,
     middleware: Sequence[AgentMiddleware[Any, Any, Any]],
+    system_prompt: str,
 ) -> CompiledStateGraph[
     AgentState[None], None, InputAgentState, OutputAgentState[None]
 ]:
@@ -55,6 +55,9 @@ def create_research_agent(
     middleware : Sequence of AgentMiddleware
         The full stack, e.g. `middleware.agent_middleware(...)` with
         `ReadUrlCapMiddleware` appended by the caller.
+    system_prompt : str
+        Resolved by the caller via `prompt_store.PromptStore.get(
+        prompts.PROMPT_NAMES["researcher"], label=...)` (stage 1).
 
     Returns
     -------
@@ -68,7 +71,7 @@ def create_research_agent(
     graph = create_agent(
         model=model,
         tools=list(tools),
-        system_prompt=build_researcher_prompt(settings.researcher_prompt_version),
+        system_prompt=system_prompt,
         middleware=list(middleware),
     )
     return graph.with_config(

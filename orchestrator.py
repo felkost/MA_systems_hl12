@@ -48,6 +48,7 @@ counter from the supervisor path's, on purpose (CLAUDE.md's invariant).
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from datetime import date
 from typing import Annotated, Any, Literal, NotRequired, TypedDict, cast
 
 from langchain.agents import create_agent
@@ -75,7 +76,8 @@ from middleware import (
     TracingMiddleware,
     agent_middleware,
 )
-from prompts import build_composer_prompt
+from prompt_store import PromptStore
+from prompts import PROMPT_NAMES
 from schemas import (
     RESEARCH_INPUT_TEMPLATE,
     CritiqueResult,
@@ -110,10 +112,32 @@ def _original_request(messages: Sequence[Any]) -> str:
     raise ValueError("no HumanMessage in state -- main.py always seeds one")
 
 
+def _resolve_prompts(prompt_store: PromptStore, *, label: str) -> dict[str, str]:
+    """Fetch all five prompts this module needs, once, keyed by role -- a
+    separate copy of `supervisor.py`'s own helper, not a shared import: the
+    two coordination paths must never import each other or a module that
+    would couple them (`tests/test_layering.py`'s `BIDIRECTIONAL_FORBIDDEN_PAIRS`).
+    """
+    return {
+        "planner": prompt_store.get(PROMPT_NAMES["planner"], label=label),
+        "researcher": prompt_store.get(PROMPT_NAMES["researcher"], label=label),
+        "critic": prompt_store.get(
+            PROMPT_NAMES["critic"],
+            label=label,
+            variables={"today": date.today().isoformat()},
+        ),
+        "composer": prompt_store.get(PROMPT_NAMES["composer"], label=label),
+        "critic_verification": prompt_store.get(
+            PROMPT_NAMES["critic_verification"], label=label
+        ),
+    }
+
+
 def create_orchestrator_graph(
     settings: Settings,
     *,
     role_models: Mapping[str, BaseChatModel],
+    prompt_store: PromptStore,
     base_tools: Sequence[BaseTool] | None = None,
     checkpointer: BaseCheckpointSaver[Any] | None = None,
 ) -> CompiledStateGraph[OrchestratorState, None, Any, Any]:
@@ -127,6 +151,10 @@ def create_orchestrator_graph(
         reuses the `"supervisor"` role's model (`Settings.ROLES` has no
         `"composer"` entry; the composer replaces work the Supervisor model
         does on the other path).
+    prompt_store : PromptStore
+        Resolves all five prompts this graph needs (hl12 stage 1) -- see
+        `supervisor.create_supervisor`'s own docstring for why this is
+        required, not optional.
     base_tools : Sequence of BaseTool, optional
         Defaults to `tools.SUPERVISOR_TOOLS`; `save_report` is looked up by
         name so a test can inject a fake one.
@@ -142,6 +170,8 @@ def create_orchestrator_graph(
         base_tools = tools.SUPERVISOR_TOOLS
     save_report_tool = next(t for t in base_tools if t.name == "save_report")
 
+    prompts = _resolve_prompts(prompt_store, label=settings.langfuse_prompt_label)
+
     planner_graph = create_planner_agent(
         settings,
         tools.PLANNER_TOOLS,
@@ -149,6 +179,7 @@ def create_orchestrator_graph(
         middleware=agent_middleware(
             tool_call_limit=PLANNER_TOOL_CALL_LIMIT, role="planner"
         ),
+        system_prompt=prompts["planner"],
     )
     research_graph = create_research_agent(
         settings,
@@ -161,6 +192,7 @@ def create_orchestrator_graph(
             ReadUrlCapMiddleware(settings.max_read_url_per_search),
             UnsupportedClaimMiddleware(),
         ],
+        system_prompt=prompts["researcher"],
     )
     critic_graph = create_critic_agent(
         settings,
@@ -170,13 +202,14 @@ def create_orchestrator_graph(
             *agent_middleware(
                 tool_call_limit=settings.critic_max_tool_calls, role="critic"
             ),
-            CriticVerificationMiddleware(),
+            CriticVerificationMiddleware(prompts["critic_verification"]),
         ],
+        system_prompt=prompts["critic"],
     )
     composer_graph = create_agent(
         model=role_models["supervisor"],
         tools=[],
-        system_prompt=build_composer_prompt(settings.composer_prompt_version),
+        system_prompt=prompts["composer"],
         response_format=ProviderStrategy(ReportDraft, strict=True),
         # No agent_middleware() stack -- the composer has no tools, so the
         # tool-call-limit/retry machinery has nothing to guard. TracingMiddleware
