@@ -20,6 +20,7 @@ from typing import Any
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import BaseMessage
 from langchain_core.outputs import ChatGeneration, ChatResult
+from langfuse.api import NotFoundError
 
 import prompt_store
 
@@ -119,6 +120,74 @@ class RaisingLangfuse:
         if fallback:
             return _FakeTextPromptClient(fallback, is_fallback=True)
         raise RuntimeError(f"Langfuse unreachable while fetching {name!r}")
+
+
+class FakeLangfuseDatasets:
+    """A `Langfuse` double covering only the Datasets surface
+    `evals.langfuse_dataset.sync_golden_dataset` calls -- `get_dataset`/
+    `create_dataset`/`create_dataset_item` -- matching the real SDK's
+    measured signatures and its `NotFoundError`-on-missing-dataset contract
+    (`docs/specs/stage-3.md`, section 2). `NotFoundError` is the real
+    `langfuse.api.NotFoundError`, not a stand-in, so a test proves the
+    production code's `except NotFoundError` clause against the exact type
+    it will see live."""
+
+    def __init__(self) -> None:
+        self._datasets: dict[str, dict[str, dict[str, Any]]] = {}
+        self.create_dataset_calls: list[str] = []
+
+    def get_dataset(self, name: str) -> dict[str, Any]:
+        if name not in self._datasets:
+            raise NotFoundError(body=f"dataset {name!r} not found")
+        return {"name": name, "items": dict(self._datasets[name])}
+
+    def create_dataset(self, *, name: str, **_: Any) -> dict[str, Any]:
+        self.create_dataset_calls.append(name)
+        self._datasets.setdefault(name, {})
+        return {"name": name}
+
+    def create_dataset_item(
+        self,
+        *,
+        dataset_name: str,
+        input: Any = None,
+        expected_output: Any = None,
+        metadata: Any = None,
+        id: str | None = None,
+        **_: Any,
+    ) -> dict[str, Any]:
+        item_id = id or f"generated-{len(self._datasets.get(dataset_name, {}))}"
+        item = {
+            "id": item_id,
+            "input": input,
+            "expected_output": expected_output,
+            "metadata": metadata,
+        }
+        self._datasets.setdefault(dataset_name, {})[item_id] = item
+        return item
+
+
+class RaisingLangfuseDatasets:
+    """A `Langfuse` double whose `get_dataset` fails with something other
+    than "not found" -- simulating a bad/expired API key (401/403) so a
+    test can prove `sync_golden_dataset` does not misread an auth failure
+    as "dataset missing, create it" (the lane-1 correction,
+    `docs/specs/stage-3.md`, section 2)."""
+
+    def get_dataset(self, name: str) -> dict[str, Any]:
+        raise RuntimeError(f"401 Unauthorized while fetching dataset {name!r}")
+
+    def create_dataset(self, *, name: str, **_: Any) -> dict[str, Any]:
+        raise AssertionError(
+            "create_dataset must never be called after a non-NotFoundError "
+            "failure from get_dataset"
+        )
+
+    def create_dataset_item(self, **_: Any) -> dict[str, Any]:
+        raise AssertionError(
+            "create_dataset_item must never be called after get_dataset "
+            "fails with something other than NotFoundError"
+        )
 
 
 def fake_prompt_store() -> prompt_store.SnapshotPromptStore:
