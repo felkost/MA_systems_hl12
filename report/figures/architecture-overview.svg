@@ -1,0 +1,94 @@
+<svg viewBox="0 0 1320 560" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="s5a-title s5a-desc">
+    <title id="s5a-title">The whole hl12 architecture as delivered, from the REPL down to Langfuse Cloud</title>
+    <desc id="s5a-desc">main.py calls the Supervisor, which coordinates the Planner, Researcher and Critic agents in a plan-research-critique loop. The agents call prompt_store.py to fetch their system prompts and tools.py/retriever.py for web search, URL reading and hybrid knowledge search. Tool calls pass through a human-in-the-loop approval gate before save_report runs. prompt_store.py, tools.py and the HITL gate all send spans to observability.py, which forwards them as an OpenTelemetry span processor to Langfuse Cloud's Tracing surface, grouped into sessions and users. Separately, prompt_store.py fetches prompts by label from Langfuse's Prompt Management, and evals/langfuse_dataset.py idempotently syncs the golden dataset into Langfuse Datasets. Inside Langfuse Cloud, new traces are scored asynchronously, minutes later, by four LLM-as-a-Judge evaluators.</desc>
+    <rect width="100%" height="100%" fill="#ffffff"/>
+    <defs>
+      <marker id="s5a-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+        <polygon points="0 0, 8 3, 0 6" fill="#6f7690"/>
+      </marker>
+      <marker id="s5a-arrow-soft" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+        <polygon points="0 0, 8 3, 0 6" fill="#9296a8"/>
+      </marker>
+    </defs>
+
+    <text x="230" y="14" fill="#6f7690" font-size="9" font-family="Arial,sans-serif" letter-spacing="0.1em">INTERFACE</text>
+    <rect x="230" y="20" width="200" height="44" rx="6" fill="#ffffff" stroke="#4c526d" stroke-width="1"/>
+    <text x="330" y="38" fill="#2d3142" font-size="12" font-weight="600" font-family="Arial,sans-serif" text-anchor="middle">main.py</text>
+    <text x="330" y="54" fill="#6f7690" font-size="9" font-family="Arial,sans-serif" text-anchor="middle">REPL</text>
+
+    <text x="230" y="94" fill="#6f7690" font-size="9" font-family="Arial,sans-serif" letter-spacing="0.1em">APPLICATION</text>
+    <rect x="230" y="100" width="200" height="50" rx="6" fill="#ffffff" stroke="#4c526d" stroke-width="1"/>
+    <text x="330" y="121" fill="#2d3142" font-size="12" font-weight="600" font-family="Arial,sans-serif" text-anchor="middle">Supervisor</text>
+    <text x="330" y="138" fill="#6f7690" font-size="9" font-family="Arial,sans-serif" text-anchor="middle">create_agent + HITL middleware</text>
+
+    <text x="60" y="184" fill="#6f7690" font-size="9" font-family="Arial,sans-serif" letter-spacing="0.1em">DOMAIN</text>
+    <rect x="60" y="190" width="540" height="70" rx="6" fill="#ffffff" stroke="#4c526d" stroke-width="1"/>
+    <text x="330" y="211" fill="#2d3142" font-size="12" font-weight="600" font-family="Arial,sans-serif" text-anchor="middle">Planner  ·  Researcher  ·  Critic</text>
+    <text x="330" y="230" fill="#6f7690" font-size="9" font-family="Arial,sans-serif" text-anchor="middle">agent-as-tool, no checkpointer</text>
+    <text x="330" y="245" fill="#6f7690" font-size="9" font-family="Arial,sans-serif" text-anchor="middle">plan -&gt; research -&gt; critique, bounded by max_revisions</text>
+
+    <text x="60" y="294" fill="#6f7690" font-size="9" font-family="Arial,sans-serif" letter-spacing="0.1em">INFRA</text>
+    <rect x="60" y="300" width="220" height="55" rx="6" fill="#ffffff" stroke="#4c526d" stroke-width="1"/>
+    <text x="170" y="321" fill="#2d3142" font-size="12" font-weight="600" font-family="Arial,sans-serif" text-anchor="middle">prompt_store.py</text>
+    <text x="170" y="338" fill="#6f7690" font-size="9" font-family="Arial,sans-serif" text-anchor="middle">LangfusePromptStore, snapshot fallback</text>
+
+    <rect x="320" y="300" width="200" height="55" rx="6" fill="#ffffff" stroke="#4c526d" stroke-width="1"/>
+    <text x="420" y="321" fill="#2d3142" font-size="12" font-weight="600" font-family="Arial,sans-serif" text-anchor="middle">tools.py + retriever.py</text>
+    <text x="420" y="338" fill="#6f7690" font-size="9" font-family="Arial,sans-serif" text-anchor="middle">web_search, read_url,</text>
+    <text x="420" y="350" fill="#6f7690" font-size="9" font-family="Arial,sans-serif" text-anchor="middle">knowledge_search (Chroma+BM25+CE)</text>
+
+    <rect x="540" y="300" width="160" height="55" rx="6" fill="rgba(244,210,112,0.20)" stroke="#f4d270" stroke-width="1.2"/>
+    <text x="620" y="321" fill="#2d3142" font-size="11" font-weight="600" font-family="Arial,sans-serif" text-anchor="middle">HITL gate</text>
+    <text x="620" y="338" fill="#4c526d" font-size="9" font-family="Arial,sans-serif" text-anchor="middle">approve / edit / reject</text>
+    <text x="620" y="350" fill="#4c526d" font-size="9" font-family="Arial,sans-serif" text-anchor="middle">before save_report</text>
+
+    <text x="60" y="394" fill="#6f7690" font-size="9" font-family="Arial,sans-serif" letter-spacing="0.1em">OBS</text>
+    <rect x="60" y="400" width="640" height="55" rx="6" fill="#ffffff" stroke="#4c526d" stroke-width="1"/>
+    <text x="380" y="421" fill="#2d3142" font-size="12" font-weight="600" font-family="Arial,sans-serif" text-anchor="middle">observability.py</text>
+    <text x="380" y="438" fill="#6f7690" font-size="9" font-family="Arial,sans-serif" text-anchor="middle">OTel provider + span processor + rotating file logs</text>
+
+    <rect x="740" y="400" width="220" height="55" rx="6" fill="#ffffff" stroke="#4c526d" stroke-width="1"/>
+    <text x="850" y="421" fill="#2d3142" font-size="11" font-weight="600" font-family="Arial,sans-serif" text-anchor="middle">evals/langfuse_dataset.py</text>
+    <text x="850" y="438" fill="#6f7690" font-size="9" font-family="Arial,sans-serif" text-anchor="middle">sync_golden_dataset, idempotent</text>
+
+    <rect x="1020" y="60" width="270" height="460" rx="8" fill="rgba(203,208,164,0.28)" stroke="#4c526d" stroke-width="1.2"/>
+    <text x="1155" y="80" fill="#2d3142" font-size="11" font-weight="700" font-family="Arial,sans-serif" text-anchor="middle" letter-spacing="0.04em">LANGFUSE CLOUD (external)</text>
+
+    <rect x="1040" y="90" width="230" height="75" rx="6" fill="#ffffff" stroke="#4c526d" stroke-width="1"/>
+    <text x="1155" y="112" fill="#2d3142" font-size="11" font-weight="600" font-family="Arial,sans-serif" text-anchor="middle">Prompt Management</text>
+    <text x="1155" y="129" fill="#6f7690" font-size="9" font-family="Arial,sans-serif" text-anchor="middle">6 prompts, label production</text>
+
+    <rect x="1040" y="185" width="230" height="75" rx="6" fill="#ffffff" stroke="#4c526d" stroke-width="1"/>
+    <text x="1155" y="207" fill="#2d3142" font-size="11" font-weight="600" font-family="Arial,sans-serif" text-anchor="middle">Tracing</text>
+    <text x="1155" y="224" fill="#6f7690" font-size="9" font-family="Arial,sans-serif" text-anchor="middle">Sessions / Users</text>
+
+    <rect x="1040" y="280" width="230" height="75" rx="6" fill="rgba(241,132,138,0.14)" stroke="#f1848a" stroke-width="1.2"/>
+    <text x="1155" y="302" fill="#f1848a" font-size="11" font-weight="600" font-family="Arial,sans-serif" text-anchor="middle">LLM-as-a-Judge</text>
+    <text x="1155" y="319" fill="#4c526d" font-size="9" font-family="Arial,sans-serif" text-anchor="middle">4 evaluators, 3 score types</text>
+
+    <rect x="1040" y="375" width="230" height="75" rx="6" fill="#ffffff" stroke="#4c526d" stroke-width="1"/>
+    <text x="1155" y="397" fill="#2d3142" font-size="11" font-weight="600" font-family="Arial,sans-serif" text-anchor="middle">Datasets</text>
+    <text x="1155" y="414" fill="#6f7690" font-size="9" font-family="Arial,sans-serif" text-anchor="middle">hl12-golden, 15 items</text>
+
+    <g stroke="#4c526d" stroke-width="1.2" fill="none">
+      <path d="M 330,64 L 330,100" marker-end="url(#s5a-arrow)"/>
+      <path d="M 330,150 L 330,190" marker-end="url(#s5a-arrow)"/>
+      <path d="M 170,260 L 170,300" marker-end="url(#s5a-arrow)"/>
+      <path d="M 420,260 L 420,300" marker-end="url(#s5a-arrow)"/>
+      <path d="M 520,327.5 L 540,327.5" marker-end="url(#s5a-arrow)"/>
+      <path d="M 170,355 L 170,400" marker-end="url(#s5a-arrow)"/>
+      <path d="M 420,355 L 420,400" marker-end="url(#s5a-arrow)"/>
+      <path d="M 620,355 L 620,400" marker-end="url(#s5a-arrow)"/>
+      <path d="M 280,327.5 L 1040,127.5" marker-end="url(#s5a-arrow)"/>
+      <path d="M 700,427.5 L 1040,222.5" marker-end="url(#s5a-arrow)"/>
+      <path d="M 960,427.5 L 1040,412.5" marker-end="url(#s5a-arrow)"/>
+    </g>
+    <path d="M 1155,260 L 1155,280" stroke="#9296a8" stroke-width="1.2" stroke-dasharray="4,3" fill="none" marker-end="url(#s5a-arrow-soft)"/>
+
+    <text x="185" y="288" fill="#6f7690" font-size="8" font-family="Arial,sans-serif">system_prompt</text>
+    <text x="435" y="288" fill="#6f7690" font-size="8" font-family="Arial,sans-serif">tool calls</text>
+    <text x="700" y="437" fill="#6f7690" font-size="8" font-family="Arial,sans-serif" text-anchor="end">get_prompt(label=production)</text>
+    <text x="1020" y="163" fill="#6f7690" font-size="8" font-family="Arial,sans-serif" text-anchor="end">OTel span processor</text>
+    <text x="965" y="400" fill="#6f7690" font-size="8" font-family="Arial,sans-serif">sync</text>
+    <text x="1163" y="273" fill="#9296a8" font-size="8" font-family="Arial,sans-serif">async</text>
+  </svg>

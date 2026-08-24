@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>MA_systems_hl12 — Final Report</title>
+<style>
+  :root{
+    --paper:#f7f2ec;
+    --paper-2:#e7d9d0;
+    --ink:#4c526d;
+    --muted:#6f7690;
+    --soft:#9296a8;
+    --rule:rgba(76,82,109,0.14);
+    --rule-solid:#c7cad6;
+    --accent:#f1848a;
+    --accent-tint:rgba(241,132,138,0.10);
+    --gold:#f4d270;
+    --gold-tint:rgba(244,210,112,0.18);
+    --sage:#cbd0a4;
+    --sage-tint:rgba(203,208,164,0.24);
+    --card:#ffffff;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:Arial,sans-serif;
+    padding:0 0 100px;
+  }
+  .wrap{max-width:920px;margin:0 auto;padding:0 24px;}
+  header.hero{
+    background:var(--ink);
+    color:#f7f2ec;
+    padding:56px 24px 40px;
+    margin-bottom:8px;
+  }
+  header.hero .inner{max-width:920px;margin:0 auto;}
+  .eyebrow{
+    font-size:11px;
+    letter-spacing:0.18em;
+    text-transform:uppercase;
+    color:var(--gold);
+    margin:0 0 12px;
+    font-weight:700;
+  }
+  h1{
+    font-size:28px;
+    margin:0 0 14px;
+    line-height:1.25;
+    font-weight:800;
+  }
+  header.hero p.lede{
+    font-size:14px;
+    line-height:1.6;
+    max-width:680px;
+    color:#d8dbe8;
+    margin:0;
+  }
+  .headline-stat{
+    display:inline-block;
+    margin-top:24px;
+    margin-right:12px;
+    padding:12px 18px;
+    background:rgba(255,255,255,0.08);
+    border:1px solid rgba(255,255,255,0.18);
+    border-radius:6px;
+    font-size:13px;
+  }
+  .headline-stat b{font-size:19px;color:#fff;}
+  nav.toc{
+    background:var(--card);
+    border:1px solid var(--rule-solid);
+    border-radius:8px;
+    padding:16px 22px;
+    margin:28px 0 40px;
+    font-size:12.5px;
+  }
+  nav.toc p{margin:0 0 8px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;font-size:10.5px;}
+  nav.toc ol{margin:0;padding-left:18px;line-height:1.8;column-count:2;}
+  nav.toc a{color:var(--ink);text-decoration:none;border-bottom:1px solid var(--rule-solid);}
+  nav.toc a:hover{border-color:var(--accent);}
+  section.block{margin:44px 0;}
+  section.block h2{
+    font-size:19px;
+    margin:0 0 4px;
+    border-bottom:3px solid var(--gold);
+    padding-bottom:8px;
+  }
+  section.block > p.dek{color:var(--muted);font-size:12.5px;margin:0 0 16px;max-width:680px;line-height:1.5;}
+  p{line-height:1.6;font-size:13.5px;margin:0 0 12px;}
+  ul,ol.plain{padding-left:18px;line-height:1.6;font-size:13px;margin:8px 0;}
+  ul li,ol.plain li{margin-bottom:5px;}
+  .figure{
+    background:var(--card);
+    border:1px solid var(--rule-solid);
+    border-radius:8px;
+    padding:14px;
+    margin:14px 0;
+  }
+  .figure img,.figure svg{width:100%;height:auto;display:block;}
+  .figure figcaption{
+    font-size:11.5px;
+    color:var(--muted);
+    margin-top:10px;
+    line-height:1.5;
+    padding-top:10px;
+    border-top:1px solid var(--rule);
+  }
+  .table-scroll{overflow-x:auto;margin:12px 0;}
+  table{width:100%;min-width:420px;border-collapse:collapse;font-size:12.5px;}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--rule);vertical-align:top;}
+  th{background:var(--paper-2);color:var(--ink);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:0.03em;}
+  tr:last-child td{border-bottom:1px solid var(--rule-solid);}
+  td.num{font-variant-numeric:tabular-nums;white-space:nowrap;}
+  .pass{color:#4f7942;font-weight:700;}
+  code{
+    background:var(--paper-2);
+    padding:1px 5px;
+    border-radius:3px;
+    font-size:12px;
+  }
+  .screenshot-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:14px;
+    margin:14px 0;
+  }
+  .screenshot-grid .figure{margin:0;}
+  footer{
+    margin-top:56px;
+    padding-top:16px;
+    border-top:1px solid var(--rule-solid);
+    font-size:11px;
+    color:var(--soft);
+    max-width:920px;
+    margin-left:auto;
+    margin-right:auto;
+    padding-left:24px;
+    padding-right:24px;
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="inner">
+    <p class="eyebrow">MA_SYSTEMS_HL12 · FINAL REPORT</p>
+    <h1>Langfuse observability for a multi-agent research system</h1>
+    <p class="lede">A Supervisor coordinates a Planner, a Researcher and a
+    Critic in a Plan → Research → Critique loop, instrumented end to end
+    with Langfuse: tracing, sessions, prompt management, and four
+    LLM-as-a-Judge evaluators.</p>
+    <span class="headline-stat"><b>5 / 5</b> requirements closed</span>
+    <span class="headline-stat"><b>4</b> evaluators</span>
+    <span class="headline-stat"><b>≈$1.00</b> total cost</span>
+  </div>
+</header>
+
+<div class="wrap">
+
+<nav class="toc">
+  <p>Contents</p>
+  <ol>
+    <li><a href="#system">Architecture</a></li>
+    <li><a href="#scenario">Usage scenario</a></li>
+    <li><a href="#screens">Screenshots</a></li>
+    <li><a href="#results">Results</a></li>
+    <li><a href="#defects">Defects found</a></li>
+    <li><a href="#cost">Cost</a></li>
+    <li><a href="#limits">Limitations</a></li>
+  </ol>
+</nav>
+
+<section class="block" id="system">
+  <h2>Architecture</h2>
+  <p class="dek">Four agents, one process, every span converging on Langfuse Cloud.</p>
+
+  <div class="figure">
+    <img src="figures/architecture-overview.svg" alt="The whole hl12 architecture: main.py calls the Supervisor, which coordinates Planner, Researcher and Critic; prompt_store.py and tools.py/retriever.py sit below them; an HITL gate sits before save_report; every layer's spans converge on observability.py before crossing to Langfuse Cloud's four surfaces on the right — Prompt Management, Tracing, LLM-as-a-Judge, and Datasets.">
+    <figcaption>REPL → Supervisor → Plan/Research/Critique loop → human
+    approval gate → observability.py → Langfuse Cloud.</figcaption>
+  </div>
+
+  <div class="table-scroll">
+  <table>
+    <thead><tr><th>Component</th><th>Role</th><th>Talks to Langfuse via</th></tr></thead>
+    <tbody>
+      <tr><td>Supervisor</td><td>Coordinates the loop, owns the one write to disk</td><td>—</td></tr>
+      <tr><td>Planner / Researcher / Critic</td><td>Plan → research → critique, capped rounds</td><td><code>prompt_store.py</code> fetches their system prompts</td></tr>
+      <tr><td><code>tools.py</code> / <code>retriever.py</code></td><td>Web search, URL read, hybrid knowledge search</td><td>spans → <code>observability.py</code></td></tr>
+      <tr><td><code>observability.py</code></td><td>OTel provider + span processor</td><td>Tracing (Sessions / Users)</td></tr>
+      <tr><td><code>evals/langfuse_dataset.py</code></td><td>Syncs the golden dataset</td><td>Datasets</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section class="block" id="scenario">
+  <h2>Usage scenario</h2>
+  <p class="dek">One question, one trace, four evaluator scores.</p>
+
+  <div class="figure">
+    <img src="figures/langfuse-scenario-sequence.svg" alt="Sequence diagram: main.py opens run_context, which propagates session/user/run attributes and starts the repl.question span; sub-agents and tools inherit that context; on completion set_trace_io stamps trace input/output; the span exports synchronously to the offline JSON dump and, when tracing is enabled, in a batch to Langfuse Cloud.">
+    <figcaption>One REPL turn, one trace, one session.</figcaption>
+  </div>
+
+  <div class="table-scroll">
+  <table>
+    <thead><tr><th>Step</th><th>What happens</th><th>Visible in Langfuse</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>You ask a question</td><td>—</td></tr>
+      <tr><td>2-4</td><td>Plan → Research → Critique (revisions capped)</td><td>Trace tree grows</td></tr>
+      <tr><td>5</td><td>You approve, edit, or reject the report</td><td>—</td></tr>
+      <tr><td>6</td><td>Report saved, trace complete</td><td><b>Tracing</b> tab: full tree, session, user</td></tr>
+      <tr><td>7</td><td>Evaluators score the trace, ~1-2 min later</td><td><b>Scores</b> tab: 4 scores</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section class="block" id="screens">
+  <h2>Screenshots</h2>
+  <p class="dek">All four required, straight from the Langfuse UI.</p>
+
+  <div class="screenshot-grid">
+    <div class="figure">
+      <img src="../screenshots/trace-tree.png" alt="A repl.question trace fully expanded, showing the nested agent and tool call tree, the session id, and four evaluator scores attached.">
+      <figcaption>Trace tree</figcaption>
+    </div>
+    <div class="figure">
+      <img src="../screenshots/session.png" alt="A Langfuse session view showing the traces grouped under one session id.">
+      <figcaption>Session</figcaption>
+    </div>
+    <div class="figure">
+      <img src="../screenshots/evaluator-scores.png" alt="A trace's Scores tab showing all four evaluators' assigned scores.">
+      <figcaption>Evaluator scores</figcaption>
+    </div>
+    <div class="figure">
+      <img src="../screenshots/prompt-management.png" alt="The Langfuse Prompts list showing six prompts, each labelled production.">
+      <figcaption>Prompt Management</figcaption>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="results">
+  <h2>Results</h2>
+
+  <div class="table-scroll">
+  <table>
+    <thead><tr><th>#</th><th>Requirement</th><th>Evidence</th><th></th></tr></thead>
+    <tbody>
+      <tr><td>R1</td><td>Tracing</td><td>4 traces, 26-45 spans each, full tree</td><td class="pass">✓</td></tr>
+      <tr><td>R2</td><td>Session / user</td><td>Shared session id, user id attached</td><td class="pass">✓</td></tr>
+      <tr><td>R3</td><td>Prompt Management</td><td>6 prompts, zero hardcoded text</td><td class="pass">✓</td></tr>
+      <tr><td>R4</td><td>LLM-as-a-Judge</td><td>4 evaluators, 3 score types</td><td class="pass">✓</td></tr>
+      <tr><td>R5</td><td>Screenshots</td><td>4 / 4 in <code>screenshots/</code></td><td class="pass">✓</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section class="block" id="defects">
+  <h2>Defects found, by live verification only</h2>
+  <p class="dek">None of these were visible to the offline test suite.</p>
+
+  <div class="table-scroll">
+  <table>
+    <thead><tr><th>Defect</th><th>Cause</th><th>Fix</th></tr></thead>
+    <tbody>
+      <tr><td>Langfuse client hijacked the OTel provider</td><td>Built before observability was configured</td><td>Reordered startup</td></tr>
+      <tr><td>Every judge scored an empty string</td><td>Wrong attribute pair (trace-scope vs. observation-scope)</td><td>Write both pairs</td></tr>
+      <tr><td>2 judges false-positived on a normal save-confirmation line</td><td>Judge prompts didn't know that behaviour was legitimate</td><td>Told the prompts explicitly</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section class="block" id="cost">
+  <h2>Cost</h2>
+
+  <div class="table-scroll">
+  <table>
+    <thead><tr><th>Stage</th><th>Cost</th><th>Note</th></tr></thead>
+    <tbody>
+      <tr><td>0</td><td class="num">$0.00</td><td>No live calls</td></tr>
+      <tr><td>1</td><td class="num">~$0.06–0.15</td><td>estimated</td></tr>
+      <tr><td>2</td><td class="num">$0.0788</td><td>measured</td></tr>
+      <tr><td>3</td><td class="num">$0.00</td><td>Datasets API, free</td></tr>
+      <tr><td>4</td><td class="num">$0.769</td><td>3 live batches</td></tr>
+      <tr><td>5</td><td class="num">$0.124</td><td>1 live run</td></tr>
+      <tr><td><b>Total</b></td><td class="num"><b>≈$0.97–1.12</b></td><td>judge cost extra, Langfuse-side</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section class="block" id="limits">
+  <h2>Limitations</h2>
+  <ul>
+    <li>Every cost above is one measurement, not an average.</li>
+    <li>Judge models are not validated against human labels.</li>
+    <li><code>citation-groundedness</code> checks the report's own citations, not the actual retrieved text.</li>
+    <li>Research/critique alternation has no hard limit — one run cost $0.31 with no critic involved at all.</li>
+    <li>A Windows console encoding bug can crash the REPL on certain web-search text (known, not fixed).</li>
+  </ul>
+</section>
+
+</div>
+
+<footer>
+  <div class="wrap">MA_systems_hl12 — Langfuse observability for a multi-agent
+  research system.</div>
+</footer>
+
+</body>
+</html>
