@@ -1,0 +1,67 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.coverage
+.idea/
+
+# Per-machine assistant permission grants and the skill kit. Machine-specific
+# and rewritten on every session; nothing here is part of the project.
+.claude/
+
+# Package and model caches kept inside the project so they land on drive F
+# and disappear with a single `rm -rf .cache`. HF_HOME and PIP_CACHE_DIR in
+# .env.example point here; a cache on the system drive is what this prevents.
+.cache/
+
+# DeepEval writes a cache and a login file next to the working directory as
+# well as in the home directory. The home-directory half is redirected in
+# .env.example; this covers whatever lands here.
+.deepeval*
+
+# Local-only working areas, by explicit decision (CLAUDE.md, "Language and
+# tracking policy"): the plan, stage specs, stage reports and diagram
+# sources never reach the remote, so every session must run from this same
+# checkout. tests/ is NOT listed here -- it is the deliverable of this
+# assignment and must be in the clone.
+docs/
+
+# Vector index and BM25 corpus. Rebuilt by `python ingest.py`; a committed
+# index would go stale against data/ with no signal that it had.
+index/
+
+# Runtime logs, evaluation run artefacts and crash-recovery checkpoints.
+# Post-mortem material, not project history.
+logs/
+*.log
+runtime/
+runs/
+
+# Reports the system writes, which are model-authored text on a public
+# remote. Contents ignored, then re-included -- ignoring the directory
+# itself would make the negations below unreachable, and a stray file from
+# a crashed run would be swept up by a broad `git add`.
+output/*
+!output/.gitkeep
+!output/*.md
+
+# Markdown: only README.md is tracked at the top level. The agent-facing
+# documents (CLAUDE.md, AGENTS.md, CONTRIBUTING.md, insights.md,
+# handoff.md) are local-only by the same decision that keeps docs/ local.
+*.md
+!README.md
+
+# The golden dataset's fixtures are a declared exception to the rule above:
+# they ship with the tests, which are the deliverable. Without this
+# negation the *.md rule silently swallows the poisoned-document fixture,
+# and the suite passes locally while failing in a fresh clone.
+!evals/fixtures/*.md
+!tests/**/*.md
+
+# report/ ships the rendered report and its figures, not the sources it was
+# built from.
+report/*.docx
+report/~$*

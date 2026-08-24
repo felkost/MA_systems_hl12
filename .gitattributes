@@ -1,0 +1,7 @@
+# Normalise line endings on the way into the repository. Without this, files
+# authored on Windows land with CRLF and every later diff from another
+# platform rewrites whole files, burying the real change.
+* text=auto eol=lf
+
+# Binary corpus sources: never normalised, never diffed as text.
+*.pdf binary

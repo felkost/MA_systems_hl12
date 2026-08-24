@@ -1,0 +1,50 @@
+name: gate
+
+on:
+  # `push:` is scoped to `main` so a feature-branch commit does not run this
+  # identical gate twice on one SHA (once for `push`, once for
+  # `pull_request`). Branch protection matches the bare job name
+  # (`offline gate`) -- the "gate / " prefix and "(push)"/"(pull_request)"
+  # suffixes are UI decoration, not part of the matched context.
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  offline:
+    name: offline gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt -r requirements-dev.txt
+      - run: black --check . tests/*.py
+      - run: flake8 .
+      - run: mypy .
+      # No network, no API keys, no live services. This is the whole of what
+      # CI can honestly guarantee about this project.
+      - run: pytest -q -m "not smoke and not eval"
+
+  evals:
+    name: deepeval (manual only)
+    # Never on push. The eval tier spends real money and is not
+    # deterministic; a red result from judge drift would train everyone to
+    # ignore a red CI, and then CI stops catching real breakage.
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt -r requirements-dev.txt
+      - run: deepeval test run tests/
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          JUDGE_MODEL_NAME: ${{ secrets.JUDGE_MODEL_NAME }}
+          DEEPEVAL_TELEMETRY_OPT_OUT: "YES"

@@ -1,0 +1,40 @@
+# Development gate and evaluation tooling. Installed into .venv before the
+# first gate run; the application requirements only matter from stage 2 on.
+#
+# deepeval lives here rather than in requirements.txt because it is a test
+# tool, not a runtime dependency of the system. That has a consequence worth
+# stating in the README: `deepeval test run tests/` is this assignment's
+# deliverable command, and it needs the dev requirements installed. A cloner
+# who installs only requirements.txt gets tracked tests that cannot run.
+
+black>=24.0
+flake8>=7.0
+mypy>=1.10
+pytest>=8.0
+pytest-randomly>=3.15
+pytest-timeout>=2.3
+
+# Present transitively via deepeval (which needs it for its own async test
+# support), and pinned explicitly anyway -- this project's own async tests
+# (evals/deepeval_model.py) must not depend on somebody else's dependency
+# graph for a plugin that is invisible in requirements-dev.txt otherwise.
+pytest-asyncio==1.4.0
+
+# The evaluation framework the assignment mandates. Pinned exactly: the
+# stage-1 SDK reconnaissance measures this specific version's API surface,
+# and a floor would let a later resolve move underneath those findings.
+deepeval==4.1.10
+
+# DeepEval's own result cache takes a shared file lock, and on Windows
+# `portalocker` (which deepeval already pulls in) cannot take one without
+# pywin32 -- `msvcrt` provides no true shared lock. Without this extra,
+# `get_cached_test_run` returns None and deepeval's own
+# `cache.py:cache_test_case` raises `AttributeError: 'NoneType' object has
+# no attribute 'test_cases_lookup_map'` on EVERY test case, whatever its
+# metrics scored. Measured at stage 9e phase 1b: all 14 e2e cases failed
+# that way while DeepEval's own persisted run file recorded 7 of them as
+# passing. Worse than cosmetic -- an `AttributeError` is not an
+# `AssertionError`, so it escapes `tests/test_e2e.py`'s own combined-error
+# handler and silently suppresses the deterministic `check_expects`
+# failures that handler exists to report.
+portalocker[win32]>=3.0

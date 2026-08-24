@@ -1,0 +1,25 @@
+[tool.black]
+line-length = 88
+target-version = ["py312"]
+
+[tool.mypy]
+python_version = "3.12"
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+exclude = '(^\.venv/|^\.cache/|^docs/)'
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# `python -m pytest` prepends cwd to sys.path (an artefact of the `-m` flag),
+# which is why "from evals.deepeval_model import ..." resolved locally --
+# the bare `pytest` binary CI actually runs does not do this, and the same
+# import failed in CI with `ModuleNotFoundError: No module named 'evals'`
+# (gate.yml PR check, 2026-08-22). `pythonpath` makes project-root imports
+# resolve the same way regardless of how pytest is invoked.
+pythonpath = ["."]
+markers = [
+    "smoke: boots real services; excluded from the commit gate",
+    "eval: runs DeepEval metrics against live models; costs money, not deterministic",
+]
