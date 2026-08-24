@@ -13,12 +13,17 @@ This repository solves homework-lesson-12. The system itself is ported from
 engineering weight here sits in `prompt_store.py`, `observability.py` and
 `evals/`.
 
-> **Status: stage 3 (Langfuse Datasets) complete.** Prompt management
-> (stage 1), tracing with session/user grouping (stage 2), and an idempotent
-> golden-dataset sync into Langfuse Datasets (stage 3, verified live: dataset
-> `hl12-golden` with 15 items) are done. The four online evaluators are still
-> in progress — see `CONTRIBUTING.md` for the stage sequence, and the
-> repository's own commit history for what has actually landed.
+> **Status: stage 4 (LLM-as-a-Judge evaluators) code complete; live
+> verification pending.** Prompt management (stage 1), tracing with
+> session/user grouping (stage 2), and an idempotent golden-dataset sync
+> into Langfuse Datasets (stage 3, verified live: dataset `hl12-golden`
+> with 15 items) are done. Stage 4 ships four evaluator specs and their
+> judge prompts (`evals/evaluator_specs.json`, `evals/judge_prompts/*.md`)
+> as the source of truth for manual configuration in the Langfuse UI; the
+> live step — configuring the four evaluators, running new queries, and
+> confirming scores appear — has not yet been performed. See
+> `CONTRIBUTING.md` for the stage sequence, and the repository's own commit
+> history for what has actually landed.
 
 ## Setup
 

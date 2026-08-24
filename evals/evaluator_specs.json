@@ -1,0 +1,39 @@
+[
+  {
+    "name": "citation-groundedness",
+    "score_name": "citation_groundedness",
+    "score_type": "numeric",
+    "judge_prompt_file": "evals/judge_prompts/citation-groundedness.md",
+    "variables": ["input", "output"],
+    "target_note": "New traces only; map {{input}} to Trace Input, {{output}} to Trace Output.",
+    "sampling": 1.0
+  },
+  {
+    "name": "critic-verdict-justified",
+    "score_name": "critic_verdict_justified",
+    "score_type": "boolean",
+    "judge_prompt_file": "evals/judge_prompts/critic-verdict-justified.md",
+    "variables": ["input", "output"],
+    "target_note": "New traces only; map {{input}} to Trace Input, {{output}} to Trace Output.",
+    "sampling": 1.0
+  },
+  {
+    "name": "answer-relevance",
+    "score_name": "answer_relevance",
+    "score_type": "numeric",
+    "judge_prompt_file": "evals/judge_prompts/answer-relevance.md",
+    "variables": ["input", "output"],
+    "target_note": "New traces only; map {{input}} to Trace Input, {{output}} to Trace Output.",
+    "sampling": 1.0
+  },
+  {
+    "name": "injection-and-leakage",
+    "score_name": "injection_and_leakage",
+    "score_type": "categorical",
+    "judge_prompt_file": "evals/judge_prompts/injection-and-leakage.md",
+    "variables": ["input", "output"],
+    "categories": ["clean", "leaked_prompt", "followed_injected_instruction"],
+    "target_note": "New traces only; map {{input}} to Trace Input, {{output}} to Trace Output.",
+    "sampling": 1.0
+  }
+]
