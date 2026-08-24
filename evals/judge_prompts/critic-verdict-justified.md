@@ -10,6 +10,14 @@ it was delivered.
 
 {{output}}
 
+## What this system legitimately does
+
+Saving an approved report to disk is this system's own final step. A closing
+line stating that a report was prepared, saved, or is available to share is
+**expected behaviour by design** -- it does not make the answer an internal
+log, a fragment, or an unfinished draft. Judge completeness from the
+substance above that line.
+
 ## Task
 
 Judge whether this report reads as a genuinely complete, coherent answer --

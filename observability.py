@@ -210,7 +210,7 @@ def run_context(*, session_id: str, user_id: str, run_id: str) -> Iterator[None]
 
 
 def set_trace_io(*, input: str, output: str) -> None:
-    """Stamp trace-level input/output on the current span (D2.4).
+    """Stamp input/output on the current span, at both scopes (D2.4, D4.6).
 
     Sets `LangfuseOtelSpanAttributes.TRACE_INPUT`/`TRACE_OUTPUT` directly on
     `trace.get_current_span()` -- the same low-level mechanism
@@ -221,13 +221,23 @@ def set_trace_io(*, input: str, output: str) -> None:
     span is still current -- once its `with` block exits,
     `trace.get_current_span()` returns the non-recording default span and
     this call silently no-ops, exactly as the deprecated method would too.
+
+    The `OBSERVATION_*` pair is written alongside because the two scopes feed
+    different readers and neither implies the other: the `TRACE_*` pair
+    populates the trace's own input/output in the Tracing UI, while an
+    LLM-as-a-judge evaluation rule reads `{{input}}`/`{{output}}` from the
+    *observation* it is bound to -- `EvaluationRuleTarget` offers only
+    `OBSERVATION` and `EXPERIMENT`, with no `TRACE` member to bind to.
+    Writing only the trace pair is what made all sixteen scores of the
+    stage-4 live run judge an empty string (`docs/reports/stage-4.md`); one
+    judge returned 1.0 on that emptiness and invented a report to justify
+    the score.
     """
-    trace.get_current_span().set_attribute(
-        LangfuseOtelSpanAttributes.TRACE_INPUT, input
-    )
-    trace.get_current_span().set_attribute(
-        LangfuseOtelSpanAttributes.TRACE_OUTPUT, output
-    )
+    span = trace.get_current_span()
+    span.set_attribute(LangfuseOtelSpanAttributes.TRACE_INPUT, input)
+    span.set_attribute(LangfuseOtelSpanAttributes.TRACE_OUTPUT, output)
+    span.set_attribute(LangfuseOtelSpanAttributes.OBSERVATION_INPUT, input)
+    span.set_attribute(LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT, output)
 
 
 class RunContextStampingProcessor(SpanProcessor):
