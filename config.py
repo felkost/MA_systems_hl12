@@ -93,6 +93,13 @@ class Settings(BaseSettings):
     # widens it slightly since a prompt changing mid-session is rare.
     prompt_cache_ttl_seconds: int = Field(default=300, ge=0, le=3600)
 
+    # -- Langfuse Datasets (evals/langfuse_dataset.py, stage 3). The
+    # dataset `sync_golden_dataset` upserts tests/golden_dataset.json into --
+    # infrastructure for stage 4's judges to be validated against known
+    # cases, not one of docs/task-hl12.md's five numbered requirements on
+    # its own (docs/specs/stage-3.md, scope note).
+    langfuse_golden_dataset_name: str = "hl12-golden"
+
     # -- Supervisor / revision loop
     max_revisions: int = Field(default=2, ge=1, le=3)
     recursion_limit: int = Field(default=100, ge=2, le=200)
