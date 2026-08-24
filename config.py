@@ -156,6 +156,16 @@ class Settings(BaseSettings):
     trace_sample_rate: float = Field(default=1.0, ge=0.0, le=1.0)
     span_dump_dir: str | None = None
     max_span_payload_length: int = Field(default=2000, ge=100, le=20_000)
+    # Explicit so a test can redirect it under `tmp_path`, the same shape
+    # `span_dump_dir` already uses -- unset means the real `logs/` (D2.3,
+    # `docs/specs/stage-2.md`).
+    log_dir: str | None = None
+    # Has a default, deliberately -- unlike `judge_model_name`'s "no default
+    # on purpose", a missing user identity has an obviously safe fallback for
+    # a single-author project, and a required field here would break every
+    # `Settings(...)` construction across the test suite for no
+    # assignment-relevant benefit (`docs/specs/stage-2.md`, section 3).
+    default_user_id: str = "anonymous"
 
     # -- Evaluation tooling (stage 9e). A plain `Settings` field, not a
     # `_CacheSettings` one (see `export_deepeval_timeout_override`'s own

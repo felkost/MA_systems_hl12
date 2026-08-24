@@ -318,8 +318,46 @@ def test_build_graph_selects_supervisor_or_orchestrator(monkeypatch: Any) -> Non
     assert supervisor_graph is not graph_graph
 
 
+# -- Stage 2, D2.1: build_prompt_store's client= keyword. A second
+# Langfuse(public_key=...) call with the same key returns the SDK's own
+# cached singleton and silently discards whatever the second call passed --
+# so the injected-client branch must skip constructing a second client
+# entirely, and the client=None fallback must pass tracing_enabled= through
+# (`docs/specs/stage-2.md`, section 1 and section 3).
+
+
+def test_build_prompt_store_reuses_the_given_client_but_builds_its_own_when_none(
+    monkeypatch: Any,
+) -> None:
+    fake_client: Any = object()
+    store = main.build_prompt_store(
+        _settings(
+            langfuse_public_key=SecretStr("pk-test"),
+            langfuse_secret_key=SecretStr("sk-test"),
+        ),
+        client=fake_client,
+    )
+    assert store._client is fake_client  # type: ignore[attr-defined]
+
+    captured: dict[str, Any] = {}
+
+    def fake_langfuse(**kwargs: Any) -> Any:
+        captured.update(kwargs)
+        return object()
+
+    monkeypatch.setattr(main, "Langfuse", fake_langfuse)
+    main.build_prompt_store(
+        _settings(
+            tracing_enabled=False,
+            langfuse_public_key=SecretStr("pk-test"),
+            langfuse_secret_key=SecretStr("sk-test"),
+        )
+    )
+    assert captured["tracing_enabled"] is False
+
+
 # -- Stage 5, D5.7: each turn opens its own "repl.question" span with a
-# fresh run_id, via OTel Baggage + RunIdStampingProcessor -- not a
+# fresh run_id, via OTel Baggage + RunContextStampingProcessor -- not a
 # configure_observability() parameter (that draft was unbuildable, see
 # docs/specs/stage-5.md's "corrected" note on D5.7).
 
@@ -343,7 +381,7 @@ def test_run_session_opens_one_repl_question_span_per_turn_with_a_fresh_run_id(
     _reset_otel_global_state()
     exporter = InMemorySpanExporter()
     provider = TracerProvider()
-    provider.add_span_processor(observability.RunIdStampingProcessor())
+    provider.add_span_processor(observability.RunContextStampingProcessor())
     provider.add_span_processor(SimpleSpanProcessor(exporter))
     from opentelemetry import trace as otel_trace
 
