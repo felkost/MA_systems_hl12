@@ -111,13 +111,15 @@ def configured_for_eval(settings: Settings) -> Iterator[None]:
 
 
 def eval_settings(*, runs_dir: str, settings: Settings) -> Settings:
-    """Return `settings` with its span dump redirected to `runs_dir`.
+    """Return `settings` with its span dump and log dir redirected to `runs_dir`.
 
-    Never writes into the project's real `runs/` -- the exact pollution
-    `insights.md` records as a caught stage-5 gate-test mistake, avoided
-    here for a live eval-tier run the same way.
+    Never writes into the project's real `runs/`/`logs/` -- the exact
+    pollution `insights.md` records as a caught stage-5 gate-test mistake,
+    avoided here for a live eval-tier run the same way. `log_dir` joined
+    `span_dump_dir` here at stage 2, once `configure_observability` started
+    calling `configure_file_logging` internally (D2.3).
     """
-    return settings.model_copy(update={"span_dump_dir": runs_dir})
+    return settings.model_copy(update={"span_dump_dir": runs_dir, "log_dir": runs_dir})
 
 
 def run_agent_live(role: str, agent_input: str, *, settings: Settings) -> LiveRun:

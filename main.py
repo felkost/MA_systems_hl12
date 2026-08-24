@@ -38,7 +38,7 @@ from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Command
-from opentelemetry import baggage, context, trace
+from opentelemetry import trace
 
 import hitl
 import models
@@ -90,14 +90,28 @@ def build_graph(
     )
 
 
-def build_prompt_store(settings: Settings) -> PromptStore:
+def build_prompt_store(
+    settings: Settings, *, client: Langfuse | None = None
+) -> PromptStore:
     """The real `PromptStore` `main.py` uses: Langfuse Cloud, with the local
     snapshot as `fallback=` (hl12 stage 1).
 
-    A separate `Langfuse` client from `observability.py`'s tracing one --
-    prompt fetching must work whether or not `settings.tracing_enabled`,
-    since every agent's system prompt now depends on it (requirement 3),
-    while tracing is a genuinely optional concern.
+    Parameters
+    ----------
+    settings : Settings
+    client : Langfuse, optional
+        Reused as-is when given -- `main()` passes
+        `handle.langfuse_client`, the one `Langfuse` client
+        `configure_observability` already built (D2.1, `docs/specs/stage-2.md`,
+        section 1). A second `Langfuse(public_key=...)` call with the same
+        key returns the SDK's own cached singleton and silently discards
+        whatever `tracer_provider=`/`should_export_span=` the first call
+        set, so prompt fetching must never construct its own client when
+        one already exists. When `None` (no tracing client to reuse, e.g.
+        `tracing_enabled=False`), a client is built here exactly as before
+        -- prompt fetching must work whether or not tracing is enabled,
+        since every agent's system prompt now depends on it (requirement
+        3), while tracing is a genuinely optional concern.
     """
     if settings.langfuse_public_key is None or settings.langfuse_secret_key is None:
         raise RuntimeError(
@@ -105,11 +119,18 @@ def build_prompt_store(settings: Settings) -> PromptStore:
             "fetching requires them regardless of TRACING_ENABLED, since "
             "every agent's system prompt is fetched from Langfuse"
         )
-    client = Langfuse(
-        public_key=settings.langfuse_public_key.get_secret_value(),
-        secret_key=settings.langfuse_secret_key.get_secret_value(),
-        host=settings.langfuse_base_url,
-    )
+    if client is None:
+        client = Langfuse(
+            public_key=settings.langfuse_public_key.get_secret_value(),
+            secret_key=settings.langfuse_secret_key.get_secret_value(),
+            host=settings.langfuse_base_url,
+            # Only reached when `configure_observability` built no client of
+            # its own (`tracing_enabled=False`) -- without this keyword the
+            # SDK's own default (`tracing_enabled=True`) would silently
+            # start sending spans to Langfuse Cloud even though this
+            # project's own `Settings.tracing_enabled` says not to.
+            tracing_enabled=settings.tracing_enabled,
+        )
     snapshot_path = (
         paths.prompt_snapshot_path() if settings.prompt_snapshot_enabled else None
     )
@@ -140,9 +161,19 @@ def interactive_decisions(
     return resolve
 
 
-def _print_update(chunk: dict[str, Any], write: Callable[[str], None]) -> None:
+def _print_update(chunk: dict[str, Any], write: Callable[[str], None]) -> str | None:
     """Print each streamed node's new messages -- tool calls as they are
-    emitted, findings and verdicts as they land."""
+    emitted, findings and verdicts as they land.
+
+    Returns
+    -------
+    str or None
+        The `content` of this chunk's `AIMessage`, if it carried one (the
+        same text just printed) -- `None` otherwise. `_drive_turn` uses this
+        to track the turn's final answer without duplicating the message
+        filtering above (D2.4, `docs/specs/stage-2.md`, section 3).
+    """
+    answer: str | None = None
     for node, update in chunk.items():
         if node == "__interrupt__" or not isinstance(update, dict):
             continue
@@ -157,6 +188,8 @@ def _print_update(chunk: dict[str, Any], write: Callable[[str], None]) -> None:
                 write(f"[{node}:{message.name}] {content}")
             elif isinstance(message, AIMessage) and content:
                 write(f"[{node}] {content}")
+                answer = content
+    return answer
 
 
 def _drive_turn(
@@ -166,19 +199,31 @@ def _drive_turn(
     *,
     write: Callable[[str], None],
     resolve_decisions: DecisionResolver,
-) -> None:
+) -> str:
     """Stream one turn to completion, resolving every interrupt it raises
     in order -- a turn can raise more than one in sequence (e.g. `reject`
-    sends the model back to try again)."""
+    sends the model back to try again).
+
+    Returns
+    -------
+    str
+        The last `AIMessage` content emitted before the stream ended without
+        an interrupt -- the model's final answer to the user's question, not
+        a concatenation of every intermediate agent's chatter or tool-call
+        announcement, since each node's terminal `AIMessage` overwrites it in
+        turn-order. `set_trace_io` has no other source for this text (D2.4).
+    """
+    answer = ""
     while True:
         request: HITLRequest | None = None
         for chunk in graph.stream(payload, config=config, stream_mode="updates"):
             if "__interrupt__" in chunk:
                 request = chunk["__interrupt__"][0].value
                 break
-            _print_update(chunk, write)
+            if (latest := _print_update(chunk, write)) is not None:
+                answer = latest
         if request is None:
-            return
+            return answer
         response = resolve_decisions(request)
         payload = Command(resume=response)
 
@@ -194,6 +239,8 @@ def run_session(
     write: Callable[[str], None],
     resolve_decisions: DecisionResolver,
     thread_id: str | None = None,
+    session_id: str | None = None,
+    user_id: str | None = None,
 ) -> str:
     """Drive one REPL session: one `thread_id`, any number of turns.
 
@@ -219,6 +266,14 @@ def run_session(
     thread_id : str, optional
         Defaults to a fresh `uuid4()` -- the one stable id reused across
         every turn in this session (D4.6).
+    session_id : str, optional
+        Defaults to a fresh `uuid4()` -- bound once here, outside the
+        per-turn loop, and reused by every turn's `run_context` call. This
+        is what makes 3-5 turns in one session group into one Langfuse
+        session (requirement R2), not 3-5 separate one-trace sessions
+        (D2.5, `docs/specs/stage-2.md`, section 3).
+    user_id : str, optional
+        Defaults to `settings.default_user_id`.
 
     Returns
     -------
@@ -227,6 +282,8 @@ def run_session(
         resulting checkpoint.
     """
     tid = thread_id or str(uuid4())
+    sid = session_id or str(uuid4())
+    uid = user_id or settings.default_user_id
     graph = build_graph(
         settings,
         orchestration,
@@ -244,25 +301,20 @@ def run_session(
             return tid
         payload: Any = {"messages": [HumanMessage(content=question)]}
         # D5.7: run_id is fresh per turn, not the session's thread_id --
-        # "one question = one trace" (docs/specs/stage-5.md). Rides OTel's
-        # own Baggage so RunIdStampingProcessor can stamp it onto every
-        # span this turn creates, without threading it through
-        # supervisor.py/orchestrator.py/middleware.py by hand.
+        # "one question = one trace" (docs/specs/stage-5.md).
         run_id = str(uuid4())
-        token = context.attach(baggage.set_baggage("run_id", run_id))
-        try:
+        with observability.run_context(session_id=sid, user_id=uid, run_id=run_id):
             with trace.get_tracer(__name__).start_as_current_span(
                 "repl.question", attributes={"run_id": run_id}
             ):
-                _drive_turn(
+                answer = _drive_turn(
                     graph,
                     payload,
                     config,
                     write=write,
                     resolve_decisions=resolve_decisions,
                 )
-        finally:
-            context.detach(token)
+                observability.set_trace_io(input=question, output=answer)
 
 
 def _stdin_reader(prompt: str = "> ") -> Callable[[], str | None]:
@@ -294,6 +346,22 @@ def build_arg_parser() -> argparse.ArgumentParser:
             "the default."
         ),
     )
+    parser.add_argument(
+        "--session-id",
+        default=None,
+        help=(
+            "Langfuse session id every turn in this run is grouped under "
+            "(requirement R2). Defaults to a fresh uuid4() per process."
+        ),
+    )
+    parser.add_argument(
+        "--user-id",
+        default=None,
+        help=(
+            "Langfuse user id every trace in this run carries (requirement "
+            "R2). Defaults to Settings.default_user_id."
+        ),
+    )
     return parser
 
 
@@ -301,7 +369,6 @@ def main(argv: Sequence[str] = ()) -> None:
     args = build_arg_parser().parse_args(argv or None)
     settings = load_settings()
     role_models = build_role_models(settings)
-    prompt_store = build_prompt_store(settings)
     orchestration = cast(Orchestration, args.orchestration)
 
     resolve_decisions = (
@@ -310,11 +377,15 @@ def main(argv: Sequence[str] = ()) -> None:
         else interactive_decisions(read=input, write=print)
     )
 
-    # Built once per process (D5.3/D5.11/D5.13) -- only main.py (interface)
-    # imports observability.py; every other layer reaches OpenTelemetry's
-    # ambient global tracer directly.
+    # Built first (D2.1, docs/specs/stage-2.md, section 1): main.py (interface)
+    # is the only module that imports observability.py, and build_prompt_store
+    # below reuses the one Langfuse client this call builds instead of
+    # constructing a second one -- a second Langfuse(public_key=...) call with
+    # the same key returns the SDK's own cached singleton and silently
+    # discards configure_observability's tracer_provider=/should_export_span=.
     handle = observability.configure_observability(settings)
     try:
+        prompt_store = build_prompt_store(settings, client=handle.langfuse_client)
         print(f"Session thread_id: {(tid := str(uuid4()))}")
         run_session(
             settings,
@@ -326,6 +397,8 @@ def main(argv: Sequence[str] = ()) -> None:
             write=print,
             resolve_decisions=resolve_decisions,
             thread_id=tid,
+            session_id=args.session_id,
+            user_id=args.user_id,
         )
     finally:
         handle.shutdown()

@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any, cast
 
 import pytest
+from langfuse import Langfuse
 from opentelemetry import baggage, context, trace
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
@@ -30,6 +31,17 @@ from config import Settings
 
 
 def _settings(**overrides: Any) -> Settings:
+    # `tracing_enabled` defaults False here, never inherited from a real
+    # `.env` -- pydantic-settings falls through to the dotenv/environment
+    # source for any field this helper doesn't pass explicitly, so a
+    # developer machine with TRACING_ENABLED=true and real Langfuse keys
+    # would otherwise make every `configure_observability(_settings())`
+    # call in this file build a REAL client and export real spans to the
+    # real project (confirmed live, stage 2: two of this file's tests did
+    # exactly that before this default was added -- CLAUDE.md's "a gate
+    # test that reaches the network is a broken test, not a slow one").
+    # A test that deliberately wants `tracing_enabled=True` overrides it.
+    overrides.setdefault("tracing_enabled", False)
     return Settings(openrouter_api_key=SecretStr("test-key"), **overrides)
 
 
@@ -46,20 +58,24 @@ def _isolated_otel_state() -> Any:
     _reset_otel_global_state()
 
 
-def test_configure_observability_registers_one_tracer_provider() -> None:
-    handle = observability.configure_observability(_settings())
+def test_configure_observability_registers_one_tracer_provider(
+    tmp_path: Path,
+) -> None:
+    handle = observability.configure_observability(_settings(log_dir=str(tmp_path)))
     assert trace.get_tracer_provider() is handle.tracer_provider
     assert isinstance(handle.tracer_provider, TracerProvider)
 
 
-def test_second_configure_call_raises() -> None:
-    observability.configure_observability(_settings())
+def test_second_configure_call_raises(tmp_path: Path) -> None:
+    observability.configure_observability(_settings(log_dir=str(tmp_path)))
     with pytest.raises(RuntimeError):
-        observability.configure_observability(_settings())
+        observability.configure_observability(_settings(log_dir=str(tmp_path)))
 
 
-def test_no_langfuse_processor_when_tracing_disabled() -> None:
-    handle = observability.configure_observability(_settings(tracing_enabled=False))
+def test_no_langfuse_processor_when_tracing_disabled(tmp_path: Path) -> None:
+    handle = observability.configure_observability(
+        _settings(tracing_enabled=False, log_dir=str(tmp_path))
+    )
     processor_types = [
         type(p).__name__
         for p in handle.tracer_provider._active_span_processor._span_processors
@@ -67,7 +83,9 @@ def test_no_langfuse_processor_when_tracing_disabled() -> None:
     assert "LangfuseSpanProcessor" not in processor_types
 
 
-def test_langfuse_attaches_to_the_supplied_provider_when_tracing_enabled() -> None:
+def test_langfuse_attaches_to_the_supplied_provider_when_tracing_enabled(
+    tmp_path: Path,
+) -> None:
     # A unique public_key per test -- Langfuse() is a thread-safe singleton
     # keyed by public_key within a process (its own docstring: "a
     # thread-safe singleton pattern for each unique public API key"). Two
@@ -79,6 +97,7 @@ def test_langfuse_attaches_to_the_supplied_provider_when_tracing_enabled() -> No
         tracing_enabled=True,
         langfuse_public_key=SecretStr("pk-test-attaches"),
         langfuse_secret_key=SecretStr("sk-test-attaches"),
+        log_dir=str(tmp_path),
     )
     handle = observability.configure_observability(settings)
     processor_types = [
@@ -88,7 +107,7 @@ def test_langfuse_attaches_to_the_supplied_provider_when_tracing_enabled() -> No
     assert "LangfuseSpanProcessor" in processor_types
 
 
-def test_langfuse_exports_every_span_not_only_gen_ai_ones() -> None:
+def test_langfuse_exports_every_span_not_only_gen_ai_ones(tmp_path: Path) -> None:
     """Confirmed live this session, not merely from source: Langfuse's
     default `should_export_span` (`is_default_export_span`) drops any span
     with no `gen_ai.*`-prefixed attribute -- silently filtering out every
@@ -100,6 +119,7 @@ def test_langfuse_exports_every_span_not_only_gen_ai_ones() -> None:
         tracing_enabled=True,
         langfuse_public_key=SecretStr("pk-test-export-filter"),
         langfuse_secret_key=SecretStr("sk-test-export-filter"),
+        log_dir=str(tmp_path),
     )
     handle = observability.configure_observability(settings)
     processors = handle.tracer_provider._active_span_processor._span_processors
@@ -114,13 +134,109 @@ def test_langfuse_exports_every_span_not_only_gen_ai_ones() -> None:
     assert cast(Any, langfuse_processor)._should_export_span(non_gen_ai_span) is True
 
 
-def test_offline_span_dump_uses_a_simple_not_batch_processor() -> None:
-    handle = observability.configure_observability(_settings())
+def test_offline_span_dump_uses_a_simple_not_batch_processor(tmp_path: Path) -> None:
+    handle = observability.configure_observability(_settings(log_dir=str(tmp_path)))
     processors = handle.tracer_provider._active_span_processor._span_processors
     simple = [p for p in processors if isinstance(p, SimpleSpanProcessor)]
     assert any(
         isinstance(p.span_exporter, observability.SpanJsonExporter) for p in simple
     )
+
+
+# -- Stage 2, D2.1: the provider-hijack non-regression tests. Reproduces the
+# diagnosed defect (`docs/specs/stage-2.md`, section 1): `main.py` used to
+# build a prompt-store `Langfuse` client before `configure_observability`,
+# and `LangfuseResourceManager`'s per-public_key singleton silently
+# discarded the second construction's `tracer_provider=`/
+# `should_export_span=` -- the project's own provider (and its
+# `should_export_span` override) never actually took effect.
+
+
+def test_configure_observability_then_reused_client_still_writes_the_offline_dump(
+    tmp_path: Path,
+) -> None:
+    import main as main_module
+
+    settings = _settings(
+        tracing_enabled=True,
+        langfuse_public_key=SecretStr("pk-test-d21"),
+        langfuse_secret_key=SecretStr("sk-test-d21"),
+        span_dump_dir=str(tmp_path),
+        log_dir=str(tmp_path),
+    )
+    handle = observability.configure_observability(settings)
+    # D2.1: main.py's real startup order -- configure_observability first,
+    # then build_prompt_store reusing the one client it built. Before this
+    # stage, `build_prompt_store` took no `client=` keyword at all, so this
+    # call would have raised `TypeError` -- the RED state this test pins.
+    main_module.build_prompt_store(settings, client=handle.langfuse_client)
+
+    run_id = "run-d21"
+    token = context.attach(baggage.set_baggage("run_id", run_id))
+    try:
+        with trace.get_tracer(__name__).start_as_current_span("repl.question"):
+            pass
+    finally:
+        context.detach(token)
+    handle.shutdown()
+
+    dump = json.loads(
+        paths.span_dump_path(run_id, tmp_path).read_text(encoding="utf-8")
+    )
+    assert dump[0]["name"] == "repl.question"
+
+
+def test_a_second_langfuse_client_with_the_same_public_key_ignores_new_kwargs(
+    tmp_path: Path,
+) -> None:
+    """Pins the load-bearing SDK finding behind D2.1 (`docs/specs/stage-2.md`,
+    section 1): `LangfuseResourceManager` is a singleton keyed by
+    `public_key`, so a second `Langfuse(public_key=<same key>, ...)`
+    construction returns the first instance and silently ignores every
+    other keyword this second call passed -- including a
+    `should_export_span` that would otherwise have re-enabled the SDK's
+    default gen_ai-only filter."""
+    settings = _settings(
+        tracing_enabled=True,
+        langfuse_public_key=SecretStr("pk-test-singleton"),
+        langfuse_secret_key=SecretStr("sk-test-singleton"),
+        span_dump_dir=str(tmp_path),
+        log_dir=str(tmp_path),
+    )
+    handle = observability.configure_observability(settings)
+    assert handle.langfuse_client is not None
+
+    second = Langfuse(
+        public_key="pk-test-singleton",
+        secret_key="sk-test-singleton",
+        host=settings.langfuse_base_url,
+        tracer_provider=TracerProvider(),
+        should_export_span=lambda span: False,
+    )
+    # `Langfuse(...)` itself is not a singleton -- every call returns a new
+    # wrapper object (measured live: `second is handle.langfuse_client` is
+    # False). What is cached is its internal `_resources`
+    # (`LangfuseResourceManager`, keyed by `public_key`): both wrappers
+    # share the exact same one, so the second call's `tracer_provider=`/
+    # `should_export_span=` never took effect on anything either object
+    # actually uses.
+    assert second is not handle.langfuse_client
+    resources = cast(Any, second)._resources
+    assert resources is cast(Any, handle.langfuse_client)._resources
+
+    processors = handle.tracer_provider._active_span_processor._span_processors
+    langfuse_processor = next(
+        p for p in processors if type(p).__name__ == "LangfuseSpanProcessor"
+    )
+    non_gen_ai_span = types.SimpleNamespace(attributes={"run_id": "x"})
+    assert cast(Any, langfuse_processor)._should_export_span(non_gen_ai_span) is True
+
+
+def test_configure_observability_writes_a_rotating_log_under_the_configured_dir(
+    tmp_path: Path,
+) -> None:
+    observability.configure_observability(_settings(log_dir=str(tmp_path)))
+    assert paths.log_path("main", tmp_path).exists()
 
 
 def test_compute_cost_returns_none_for_an_unpriced_model() -> None:
@@ -191,7 +307,7 @@ def test_run_id_stamping_tags_every_span_in_a_turn_not_the_previous_turns(
     # otherwise write run-A/run-B directories into the real project's
     # runs/ on every gate run.
     handle = observability.configure_observability(
-        _settings(span_dump_dir=str(tmp_path))
+        _settings(span_dump_dir=str(tmp_path), log_dir=str(tmp_path))
     )
     exporter = InMemorySpanExporter()
     handle.tracer_provider.add_span_processor(SimpleSpanProcessor(exporter))
@@ -218,7 +334,7 @@ def test_span_json_exporter_routes_by_each_spans_own_run_id_attribute(
     tmp_path: Path,
 ) -> None:
     handle = observability.configure_observability(
-        _settings(span_dump_dir=str(tmp_path))
+        _settings(span_dump_dir=str(tmp_path), log_dir=str(tmp_path))
     )
     tracer = trace.get_tracer(__name__)
     for run_id in ("run-A", "run-B"):

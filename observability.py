@@ -17,7 +17,7 @@ The first draft took `run_id` at `configure_observability()` call time, which
 cannot work: the provider is built once per process, while `run_id` is fresh
 per REPL turn. Instead, `run_id` rides OpenTelemetry's own `Baggage` --
 `main.py`'s per-turn loop attaches it to the ambient context before opening
-`repl.question`, and `RunIdStampingProcessor` (registered first, so every
+`repl.question`, and `RunContextStampingProcessor` (registered first, so every
 other processor sees the attribute already set) copies it onto every span's
 own attributes at `on_start`. `SpanJsonExporter` then routes each span it
 receives by that attribute, keyed per run, never by a fixed value from
@@ -37,13 +37,15 @@ from __future__ import annotations
 
 import json
 import logging
+from contextlib import contextmanager
 from dataclasses import dataclass
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Iterator, Sequence
 
-from langfuse import Langfuse
-from opentelemetry import baggage, trace
+from langfuse import Langfuse, propagate_attributes
+from langfuse._client.attributes import LangfuseOtelSpanAttributes
+from opentelemetry import baggage, context, trace
 from opentelemetry.sdk.trace import ReadableSpan, SpanProcessor, TracerProvider
 from opentelemetry.sdk.trace.export import (
     SimpleSpanProcessor,
@@ -70,6 +72,7 @@ class ObservabilityHandle:
     """What `configure_observability` returns."""
 
     tracer_provider: TracerProvider
+    langfuse_client: Langfuse | None
 
     def shutdown(self) -> None:
         """Flush every registered `SpanProcessor`, including the batched
@@ -87,6 +90,12 @@ def configure_observability(settings: Settings) -> ObservabilityHandle:
     Returns
     -------
     ObservabilityHandle
+        Exposes the one `Langfuse` client this call builds
+        (`langfuse_client`, `None` when `settings.tracing_enabled` is
+        `False`) so a caller does not construct a second one -- a second
+        `Langfuse(public_key=...)` call with the same key returns the SDK's
+        own cached singleton and silently discards `tracer_provider=`/
+        `should_export_span=` (D2.1, `docs/specs/stage-2.md`, section 1).
 
     Raises
     ------
@@ -108,18 +117,20 @@ def configure_observability(settings: Settings) -> ObservabilityHandle:
     provider = TracerProvider(sampler=sampler)
     trace.set_tracer_provider(provider)
 
-    # First, so every later processor sees `run_id` already stamped (D5.7).
-    provider.add_span_processor(RunIdStampingProcessor())
+    # First, so every later processor sees run_id/session.id/user.id already
+    # stamped (D5.7, extended by D2.5 to session/user).
+    provider.add_span_processor(RunContextStampingProcessor())
 
     runs_dir = settings.span_dump_dir or "runs"
     provider.add_span_processor(
         SimpleSpanProcessor(SpanJsonExporter(runs_dir=runs_dir))
     )
 
+    langfuse_client: Langfuse | None = None
     if settings.tracing_enabled:
         assert settings.langfuse_public_key is not None
         assert settings.langfuse_secret_key is not None
-        Langfuse(
+        langfuse_client = Langfuse(
             public_key=settings.langfuse_public_key.get_secret_value(),
             secret_key=settings.langfuse_secret_key.get_secret_value(),
             host=settings.langfuse_base_url,
@@ -134,29 +145,118 @@ def configure_observability(settings: Settings) -> ObservabilityHandle:
             # filtered before ever reaching the network -- reproducing
             # hl10's "collection-correct, publication-incomplete" defect
             # for a different underlying reason (a default filter, not a
-            # LangChain-integration-only publisher). Fixed by accepting
-            # every span this project's own provider ever sees: nothing
-            # else is attached to it (D5.3), so there is nothing to filter
-            # out.
+            # LangChain-integration-only publisher). This override only
+            # actually takes effect because `main.py` never builds a second
+            # `Langfuse(public_key=...)` client with the same key (D2.1) --
+            # `LangfuseResourceManager` is a singleton keyed by public_key,
+            # and a second construction silently discards this keyword,
+            # the exact defect stage 2 diagnosed and fixed
+            # (`docs/specs/stage-2.md`, section 1). Nothing else is attached
+            # to this provider (D5.3), so accepting every span it ever sees
+            # is safe.
             should_export_span=lambda span: True,
         )
 
-    return ObservabilityHandle(tracer_provider=provider)
+    configure_file_logging("main", settings, log_dir=settings.log_dir or "logs")
+
+    return ObservabilityHandle(
+        tracer_provider=provider, langfuse_client=langfuse_client
+    )
 
 
-class RunIdStampingProcessor(SpanProcessor):
-    """Copies the ambient `Baggage` "run_id" value onto every span's own
-    attributes at creation time -- registered first in the provider's
-    processor list so both the Langfuse and offline-dump processors see it
-    already set (D5.7). A future edit that reorders `add_span_processor`
-    calls ahead of this one silently loses `run_id` on every span; pinned
-    by a declared test constructing the provider with processors added out
-    of order."""
+@contextmanager
+def run_context(*, session_id: str, user_id: str, run_id: str) -> Iterator[None]:
+    """Scope one REPL turn's `session.id`/`user.id`/`run_id` (D2.5).
+
+    Attaches `session_id`/`user_id`/`run_id` as OTel `Baggage`, which
+    `RunContextStampingProcessor` copies onto every span opened afterwards
+    -- deterministic and provider-side, so the offline JSON dump carries
+    `session.id`/`user.id` on every span the same way it already carries
+    `run_id`, whether or not a Langfuse client is attached
+    (`settings.tracing_enabled`). This is *not* `propagate_attributes`'s own
+    re-application path: that path lives entirely inside
+    `LangfuseSpanProcessor.on_start` (`langfuse/_client/span_processor.py:147-169`,
+    measured, not assumed) and only runs when `tracing_enabled=True` builds
+    one -- relying on it alone would leave every nested `agent.*`/`tool.*`
+    span in the offline dump without `session.id`/`user.id` whenever tracing
+    is off, the project's own default (`docs/specs/stage-2.md`, section 1,
+    the finding behind D2.5).
+
+    `propagate_attributes` is still entered here too, for the SDK's own
+    recommended usage and whatever internal Langfuse-side features key off
+    its Context-stored values when a real client is attached -- harmless
+    and redundant with the baggage stamping above when there is no such
+    client.
+
+    Parameters
+    ----------
+    session_id : str
+        The same value across every turn in one REPL session -- what makes
+        Langfuse group 3-5 traces into one session (requirement R2), not
+        3-5 separate one-trace sessions.
+    user_id : str
+    run_id : str
+        Fresh per turn (D5.7).
+    """
+    ctx = baggage.set_baggage("run_id", run_id)
+    ctx = baggage.set_baggage("session_id", session_id, context=ctx)
+    ctx = baggage.set_baggage("user_id", user_id, context=ctx)
+    token = context.attach(ctx)
+    try:
+        with propagate_attributes(session_id=session_id, user_id=user_id):
+            yield None
+    finally:
+        context.detach(token)
+
+
+def set_trace_io(*, input: str, output: str) -> None:
+    """Stamp trace-level input/output on the current span (D2.4).
+
+    Sets `LangfuseOtelSpanAttributes.TRACE_INPUT`/`TRACE_OUTPUT` directly on
+    `trace.get_current_span()` -- the same low-level mechanism
+    `LangfuseObservationWrapper.set_trace_io` uses internally, without
+    depending on that method: it is `@deprecated` and only defined on a
+    Langfuse *wrapper* span, which this project never constructs (it only
+    ever opens raw OTel spans). Must be called while the root `repl.question`
+    span is still current -- once its `with` block exits,
+    `trace.get_current_span()` returns the non-recording default span and
+    this call silently no-ops, exactly as the deprecated method would too.
+    """
+    trace.get_current_span().set_attribute(
+        LangfuseOtelSpanAttributes.TRACE_INPUT, input
+    )
+    trace.get_current_span().set_attribute(
+        LangfuseOtelSpanAttributes.TRACE_OUTPUT, output
+    )
+
+
+class RunContextStampingProcessor(SpanProcessor):
+    """Copies the ambient `Baggage` `run_id`/`session_id`/`user_id` values
+    onto every span's own attributes at creation time -- registered first in
+    the provider's processor list so both the Langfuse and offline-dump
+    processors see them already set (D5.7, extended by D2.5). A future edit
+    that reorders `add_span_processor` calls ahead of this one silently
+    loses `run_id` on every span; pinned by a declared test constructing the
+    provider with processors added out of order.
+
+    Session/user attribution is stamped here, deterministically, rather than
+    relying only on `langfuse.propagate_attributes`'s own re-application
+    path: that path lives entirely inside `LangfuseSpanProcessor.on_start`
+    and only runs when a real Langfuse client is attached
+    (`settings.tracing_enabled`) -- this class instead makes `session.id`/
+    `user.id` present on every span in the offline dump too, the project's
+    own default posture (`docs/specs/stage-2.md`, section 1)."""
 
     def on_start(self, span: Any, parent_context: Any = None) -> None:
         run_id = baggage.get_baggage("run_id", parent_context)
         if run_id is not None:
             span.set_attribute("run_id", run_id)
+        session_id = baggage.get_baggage("session_id", parent_context)
+        if session_id is not None:
+            span.set_attribute(LangfuseOtelSpanAttributes.TRACE_SESSION_ID, session_id)
+        user_id = baggage.get_baggage("user_id", parent_context)
+        if user_id is not None:
+            span.set_attribute(LangfuseOtelSpanAttributes.TRACE_USER_ID, user_id)
 
     def on_end(self, span: ReadableSpan) -> None:
         return None
@@ -170,7 +270,7 @@ class RunIdStampingProcessor(SpanProcessor):
 
 class SpanJsonExporter(SpanExporter):
     """Writes each ended span into `runs/<run_id>/spans.json`, keyed by the
-    span's own `run_id` attribute (stamped by `RunIdStampingProcessor`) --
+    span's own `run_id` attribute (stamped by `RunContextStampingProcessor`) --
     one long-lived exporter for the whole process, never bound to a single
     fixed run at construction (D5.7, corrected).
 
@@ -262,6 +362,13 @@ def configure_file_logging(
     """
     logger = logging.getLogger(f"hl11.{service}")
     logger.setLevel(logging.INFO)
+    # `logger` is the same named object across every call in this process
+    # (Python's logging module keys loggers by name globally) -- since
+    # `configure_observability` now calls this on every invocation (D2.3),
+    # a fresh call must not pile a new handler onto whatever a previous
+    # invocation (a previous test, in the gate) already attached.
+    logger.handlers.clear()
+    logger.filters.clear()
     path = paths.log_path(service, log_dir)
     path.parent.mkdir(parents=True, exist_ok=True)
     handler = RotatingFileHandler(

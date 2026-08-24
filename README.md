@@ -13,11 +13,12 @@ This repository solves homework-lesson-12. The system itself is ported from
 engineering weight here sits in `prompt_store.py`, `observability.py` and
 `evals/`.
 
-> **Status: stage 0 (scaffold).** This README's setup and run instructions are
-> accurate today. The observability work (prompt management, session/user
-> tracking, Langfuse Datasets, the four online evaluators) is in progress —
-> see `CONTRIBUTING.md` for the stage sequence, and the repository's own
-> commit history for what has actually landed.
+> **Status: stage 2 (session/user tracking) complete.** Prompt management
+> (stage 1) and tracing with session/user grouping (stage 2) are both live
+> and verified against a real Langfuse Cloud project. Langfuse Datasets and
+> the four online evaluators are still in progress — see `CONTRIBUTING.md`
+> for the stage sequence, and the repository's own commit history for what
+> has actually landed.
 
 ## Setup
 
@@ -56,7 +57,9 @@ python main.py       # the REPL
 
 Reports are written to `output/` and only after you approve them: the single
 write in the system is gated by a human-in-the-loop checkpoint. Every turn
-produces one trace in the Langfuse project configured above.
+produces one trace in the Langfuse project configured above, grouped by
+session (`--session-id`, default: a fresh id per process) and user
+(`--user-id`, default: `DEFAULT_USER_ID`/`"anonymous"`).
 
 ## Tests
 
